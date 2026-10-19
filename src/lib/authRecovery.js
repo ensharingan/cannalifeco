@@ -183,7 +183,7 @@ export function installAuthRecovery(supabase) {
    * files are gone, so a lazy chunk 404s and the page half-works. */
   window.addEventListener('vite:preloadError', function (e) {
     if (e && e.preventDefault) e.preventDefault();
-    notify('A new version of Cannalife Co was released. Reloading…');
+    notify('A new version of Canna Life Co was released. Reloading…');
     window.location.reload();
   });
 }

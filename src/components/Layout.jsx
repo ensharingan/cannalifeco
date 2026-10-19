@@ -151,7 +151,7 @@ export default function Layout() {
         flex flex-col
       `}>
         <div className="h-16 flex items-center justify-center px-4 border-b border-sidebar-border">
-          <img src={cannalifeLogo} alt="Cannalife Co POS" className="h-10 w-auto" />
+          <img src={cannalifeLogo} alt="Canna Life Co POS" className="h-10 w-auto" />
         </div>
 
         {role !== 'cashier' && <StoreSelector />}
@@ -216,7 +216,7 @@ export default function Layout() {
             <Menu className="w-5 h-5" />
           </Button>
           <div className="flex-1" />
-          {/* Cannalife Co is light-only for this client — dark mode toggle removed.
+          {/* Canna Life Co is light-only for this client — dark mode toggle removed.
               The actual lock (default + ignoring any stored 'dark' preference)
               lives in ThemeContext / the first-paint script in index.html. */}
           <button

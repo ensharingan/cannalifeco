@@ -142,7 +142,7 @@ export default function SupplierSignup() {
       <div style={styles.card}>
 
         <div style={styles.header}>
-          <img src={cannalifeLogo} alt="Cannalife Co" style={styles.logo} />
+          <img src={cannalifeLogo} alt="Canna Life Co" style={styles.logo} />
           <p style={styles.badge}>SUPPLIER MARKETPLACE</p>
           <h1 style={styles.title}>Register as a Supplier</h1>
           <p style={styles.subtitle}>List your products and reach dispensary owners across South Africa.</p>
@@ -240,7 +240,7 @@ export default function SupplierSignup() {
         )}
 
         <p style={styles.footer}>
-          Already a supplier? <a href="https://pos.cannalife.co.za" style={styles.link}>Cannalife Co Admin Login</a>
+          Already a supplier? <a href="https://pos.cannalife.co.za" style={styles.link}>Canna Life Co Admin Login</a>
         </p>
       </div>
     </div>

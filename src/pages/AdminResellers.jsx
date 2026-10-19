@@ -829,7 +829,7 @@ function DownloadsTab() {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing ? 'Edit Download' : 'Add Download'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Name *</Label><Input value={form.name} onChange={function(e) { setForm(function(p) { return { ...p, name: e.target.value }; }); }} placeholder="e.g. Cannalife Co Brochure" /></div>
+            <div><Label>Name *</Label><Input value={form.name} onChange={function(e) { setForm(function(p) { return { ...p, name: e.target.value }; }); }} placeholder="e.g. Canna Life Co Brochure" /></div>
             <div><Label>Description</Label><Input value={form.description || ''} onChange={function(e) { setForm(function(p) { return { ...p, description: e.target.value }; }); }} placeholder="Short description shown to resellers" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>

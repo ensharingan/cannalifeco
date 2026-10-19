@@ -49,7 +49,7 @@ export default function CompanySetup() {
       }
 
       await refresh();
-      toast.success("Company created! Welcome to Cannalife Co.");
+      toast.success("Company created! Welcome to Canna Life Co.");
     } catch (err) {
       console.error('Company setup error:', err);
       toast.error(err.message || "Failed to create company");
@@ -67,7 +67,7 @@ export default function CompanySetup() {
           </div>
           <h1 className="text-2xl font-bold">Set Up Your Company</h1>
           <p className="text-sm text-muted-foreground">
-            Create your company profile to get started with Cannalife Co.
+            Create your company profile to get started with Canna Life Co.
           </p>
         </div>
         <div className="bg-card border border-border rounded-xl p-6 space-y-4">

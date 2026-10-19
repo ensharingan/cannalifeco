@@ -5,14 +5,14 @@ import { useCompany } from '@/lib/CompanyContext';
 import { supabase } from '@/api/supabaseClient';
 import { RefreshCw, LogOut } from 'lucide-react';
 
-// CompanyStatusGate — Cannalife Co white-label build.
+// CompanyStatusGate — Canna Life Co white-label build.
 //
 // The Budify original gates access on subscription state: trial countdown,
 // overdue banner, expired-trial paywall, suspended screen, all pointing at
-// Paystack. None of that applies here. Cannalife Co licenses the platform as a whole
+// Paystack. None of that applies here. Canna Life Co licenses the platform as a whole
 // and bills its franchisees itself, so there is no per-club subscription for
 // the app to check and nothing it could usefully wall someone out over. A
-// franchisee locked out of their own till by a billing state Cannalife Co manages
+// franchisee locked out of their own till by a billing state Canna Life Co manages
 // outside this system would be a support call, not a payment.
 //
 // What remains is the one check that is still real: does this user belong to a

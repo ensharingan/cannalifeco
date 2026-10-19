@@ -38,7 +38,7 @@ function addHeader(doc, title, subtitle) {
   doc.setTextColor(80, 200, 120);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Cannalife Co", 14, 12);
+  doc.text("Canna Life Co", 14, 12);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(13);
   doc.text(sanitizeForPdf(title), 14, 21);

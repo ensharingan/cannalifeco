@@ -19,7 +19,7 @@ export default function TermsOfService() {
 
         <div className="space-y-8 text-sm leading-relaxed">
           <Section title="1. Acceptance of Terms">
-            <p>By accessing or using the Cannalife Co platform ("Platform") at pos.cannalife.co.za, you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not use the Platform. These Terms constitute a legally binding agreement between you and Lereko Digital (Pty) Ltd ("Cannalife Co", "we", "us", or "our").</p>
+            <p>By accessing or using the Canna Life Co platform ("Platform") at pos.cannalife.co.za, you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not use the Platform. These Terms constitute a legally binding agreement between you and Lereko Digital (Pty) Ltd ("Canna Life Co", "we", "us", or "our").</p>
           </Section>
 
           <Section title="2. Definitions">
@@ -27,7 +27,7 @@ export default function TermsOfService() {
               <li><strong>"Client"</strong> means a dispensary or cannabis club owner who subscribes to the Platform.</li>
               <li><strong>"Member"</strong> means a customer or patient registered under a Client's account.</li>
               <li><strong>"Staff"</strong> means cashiers, managers, and other personnel added by a Client.</li>
-              <li><strong>"Platform"</strong> means the Cannalife Co web application, APIs, and all related services.</li>
+              <li><strong>"Platform"</strong> means the Canna Life Co web application, APIs, and all related services.</li>
               <li><strong>"Subscription"</strong> means a paid plan providing access to Platform features.</li>
             </ul>
           </Section>
@@ -41,7 +41,7 @@ export default function TermsOfService() {
           </Section>
 
           <Section title="5. Subscriptions and Payment">
-            <p>Cannalife Co offers multiple subscription plans (Starter, Growth, and Lifetime). Features, pricing, and limitations vary by plan. We reserve the right to modify pricing with 30 days' written notice.</p>
+            <p>Canna Life Co offers multiple subscription plans (Starter, Growth, and Lifetime). Features, pricing, and limitations vary by plan. We reserve the right to modify pricing with 30 days' written notice.</p>
             <p>New Clients may receive a free trial period. Payments are processed through Paystack. By subscribing, you authorise recurring charges to your payment method. All fees are quoted in South African Rand (ZAR) and are inclusive of VAT where applicable.</p>
             <p>Subscription fees are generally non-refundable. Refund requests will be considered on a case-by-case basis in accordance with the Consumer Protection Act 68 of 2008.</p>
           </Section>
@@ -59,7 +59,7 @@ export default function TermsOfService() {
           </Section>
 
           <Section title="7. Data Processing Agreement">
-            <p>In terms of POPIA, the Client is the "responsible party" and Cannalife Co acts as the "operator" (data processor) for Member data. Cannalife Co will process Member data solely on the Client's instructions and in accordance with our Privacy Policy. Both parties agree to implement appropriate measures to protect personal information.</p>
+            <p>In terms of POPIA, the Client is the "responsible party" and Canna Life Co acts as the "operator" (data processor) for Member data. Canna Life Co will process Member data solely on the Client's instructions and in accordance with our Privacy Policy. Both parties agree to implement appropriate measures to protect personal information.</p>
           </Section>
 
           <Section title="8. Intellectual Property">
@@ -86,7 +86,7 @@ export default function TermsOfService() {
           </Section>
 
           <Section title="12. Limitation of Liability">
-            <p>To the maximum extent permitted by South African law, Cannalife Co shall not be liable for any indirect, incidental, special, consequential, or punitive damages. Our total aggregate liability shall not exceed the total fees paid by you in the 12 months preceding the claim.</p>
+            <p>To the maximum extent permitted by South African law, Canna Life Co shall not be liable for any indirect, incidental, special, consequential, or punitive damages. Our total aggregate liability shall not exceed the total fees paid by you in the 12 months preceding the claim.</p>
           </Section>
 
           <Section title="13. Termination">
@@ -103,7 +103,7 @@ export default function TermsOfService() {
 
           <Section title="16. Contact Us">
             <div className="bg-muted/50 rounded-lg p-4">
-              <p><strong>Cannalife Co / Lereko Digital (Pty) Ltd</strong></p>
+              <p><strong>Canna Life Co / Lereko Digital (Pty) Ltd</strong></p>
               <p>Email: info@cannalife.co.za</p>
               <p>Website: pos.cannalife.co.za</p>
             </div>

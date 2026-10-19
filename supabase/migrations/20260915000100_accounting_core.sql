@@ -1,5 +1,5 @@
 -- ============================================================================
--- Cannalife Co — Double-entry accounting core
+-- Canna Life Co — Double-entry accounting core
 -- ----------------------------------------------------------------------------
 -- Adds a Pastel/Sage-style general ledger to the POS: chart of accounts,
 -- financial years and periods, tax types, cash books with payment/receipt

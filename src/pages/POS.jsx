@@ -263,7 +263,7 @@ export default function POS() {
   // unaffected.
   var ps = (company && company.pos_settings) || {};
   var requireOpenSession = !!ps.require_open_session;
-  // Cannalife Co does not offer tabs / customer accounts — Open Tabs UI is always hidden.
+  // Canna Life Co does not offer tabs / customer accounts — Open Tabs UI is always hidden.
   var hideOpenTabs = true;
 
   // Voucher mode: members buy credit at the counter, then collect stock

@@ -70,14 +70,14 @@ const LIST = { starter: 499, growth: 999, onceoff: 0 };
 
 const DEFAULT_TEMPLATE =
   'Hi {first_name}! 👋\n\n' +
-  '🌿 Welcome to the Cannalife Co Partner Program!\n\n' +
+  '🌿 Welcome to the Canna Life Co Partner Program!\n\n' +
   'Your goal is simple: *Make your first sale within 7 days.*\n\n' +
   '1️⃣ Watch the training video (15 min):\nhttps://youtu.be/t_vIGpB71Xg\n\n' +
   '2️⃣ Log into your Partner Portal:\nhttps://pos.cannalife.co.za/#/reseller/dashboard\n\n' +
   '3️⃣ Join our Partner WhatsApp Group:\nhttps://chat.whatsapp.com/KuOY7znkcaH8MhGNRCUVoj\n\n' +
   '🎯 Close your first sale in 7 days and earn a *R250 bonus!*\n\n' +
   "Let's go! 🚀\n\n" +
-  '— Chevan | Cannalife Co';
+  '— Chevan | Canna Life Co';
 
 /*
  * ─── PAGINATED FETCH ────────────────────────────────────────────────────
@@ -244,11 +244,11 @@ function JarvisButton({ companies, subscriptions, leads, counts }) {
     var wonLeads = leads.filter(function (l) { return l.stage === 'won'; }).length;
     var pendingMembers = counts.pendingMembers;
 
-    // "Cannalife Co" is read as Bud-if-eye by most engines. Spelled phonetically.
+    // "Canna Life Co" is read as Bud-if-eye by most engines. Spelled phonetically.
     var rands = function (n) { return n.toLocaleString('en-ZA') + ' rand'; };
 
     var lines = [];
-    lines.push(greeting + ', sir. Cannalife Co systems online.');
+    lines.push(greeting + ', sir. Canna Life Co systems online.');
     lines.push('Platform briefing for ' + day + '.');
     lines.push('Portfolio stands at ' + companies.length + ' clubs. ' + active + ' on paid subscriptions, ' + trial + ' still on trial.');
     lines.push('Monthly recurring revenue, ' + rands(mrr) + '.');
@@ -943,7 +943,7 @@ function CreateInvoiceDialog({ company, onClose, onSubmit, busy }) {
   }, [company]);
 
   if (!company) return null;
-  const description = 'Cannalife Co POS - ' + (pkg === 'growth' ? 'Growth' : 'Starter') + ' Package (Monthly Subscription)';
+  const description = 'Canna Life Co POS - ' + (pkg === 'growth' ? 'Growth' : 'Starter') + ' Package (Monthly Subscription)';
 
   return (
     <Dialog open={!!company} onOpenChange={function (o) { if (!o) onClose(); }}>

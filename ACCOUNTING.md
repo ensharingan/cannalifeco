@@ -1,6 +1,6 @@
-# Cannalife Co — Accounting Module
+# Canna Life Co — Accounting Module
 
-A Pastel/Sage-style double-entry general ledger built into the Cannalife Co white label
+A Pastel/Sage-style double-entry general ledger built into the Canna Life Co white label
 of Budify. It covers everything in the accountant's notes: cash books with
 payment and receipt processing, bank reconciliation, general journals, inventory
 journals, interstore transfers, tax periods with close-off, and PDF reports
@@ -123,8 +123,8 @@ account; set one under Setup → Posting map only if a licensee wants it.
 
 ## 4. Setting up a club
 
-1. Point `.env` at the Cannalife Co Supabase project (see `.env.example`). **Not** the
-   shared Budify project — Cannalife Co runs on its own isolated instance.
+1. Point `.env` at the Canna Life Co Supabase project (see `.env.example`). **Not** the
+   shared Budify project — Canna Life Co runs on its own isolated instance.
 2. Apply the five migrations in order.
 3. Open **Accounting → Cash Books** as an owner and click **Set up the books**.
    That calls `acc_bootstrap_company()`, which creates:
@@ -194,7 +194,7 @@ with no translation table. `docs/pastel-chart-of-accounts.csv` is the full list.
   I15 cost of sales; I20 other income; I25 expenses; I30 tax. **I35 Dividends is
   mapped to equity**, so a declared dividend reduces equity rather than profit.
   Tell us if the accountant wants it shown as an income statement appropriation.
-- **Re-chart.** `acc_align_chart_to_pastel(company)` replaces the first Cannalife Co
+- **Re-chart.** `acc_align_chart_to_pastel(company)` replaces the first Canna Life Co
   chart in place. Old accounts with no ledger history are deleted; ones with
   history are kept inactive (code suffix `L000`, name suffix "(legacy)") and never
   edited. A reclass journal moves their balances. It only touches accounts whose

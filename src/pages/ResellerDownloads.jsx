@@ -99,7 +99,7 @@ export default function ResellerDownloads() {
       <div className="bg-green-900/20 border border-green-800/40 rounded-xl p-5 flex items-center gap-4">
         <MessageSquare className="w-8 h-8 text-green-400 shrink-0" />
         <div className="flex-1">
-          <p className="font-semibold text-white text-sm">Join the Cannalife Co Partners WhatsApp Group</p>
+          <p className="font-semibold text-white text-sm">Join the Canna Life Co Partners WhatsApp Group</p>
           <p className="text-xs text-gray-400 mt-0.5">Get daily targets, live support and weekly leaderboard updates.</p>
         </div>
         <a href="https://chat.whatsapp.com/KuOY7znkcaH8MhGNRCUVoj" target="_blank" rel="noreferrer"

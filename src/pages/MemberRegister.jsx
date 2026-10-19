@@ -483,7 +483,7 @@ export default function MemberRegister() {
         </div>
 
         <p className="text-center text-xs text-gray-700 mt-6">
-          Powered by <span className="text-gray-500">Cannalife Co</span>
+          Powered by <span className="text-gray-500">Canna Life Co</span>
         </p>
       </div>
     </div>

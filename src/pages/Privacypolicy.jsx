@@ -20,8 +20,8 @@ export default function PrivacyPolicy() {
 
         <div className="space-y-8 text-sm leading-relaxed">
           <Section title="1. Introduction">
-            <p>Cannalife Co ("we", "us", or "our") is a cannabis dispensary and club point-of-sale platform operated by Lereko Digital (Pty) Ltd, a company registered in the Republic of South Africa. This Privacy Policy explains how we collect, use, store, share, and protect personal information in accordance with the Protection of Personal Information Act 4 of 2013 ("POPIA") and the Promotion of Access to Information Act 2 of 2000 ("PAIA").</p>
-            <p>This policy applies to all users of the Cannalife Co platform, including dispensary and club owners ("Clients"), their staff and cashiers, their customers and members ("Members"), suppliers, and visitors to our website.</p>
+            <p>Canna Life Co ("we", "us", or "our") is a cannabis dispensary and club point-of-sale platform operated by Lereko Digital (Pty) Ltd, a company registered in the Republic of South Africa. This Privacy Policy explains how we collect, use, store, share, and protect personal information in accordance with the Protection of Personal Information Act 4 of 2013 ("POPIA") and the Promotion of Access to Information Act 2 of 2000 ("PAIA").</p>
+            <p>This policy applies to all users of the Canna Life Co platform, including dispensary and club owners ("Clients"), their staff and cashiers, their customers and members ("Members"), suppliers, and visitors to our website.</p>
           </Section>
 
           <Section title="2. Information Officer">
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
           <Section title="4. Purpose of Processing">
             <p>We process personal information for the following lawful purposes:</p>
             <ul className="list-disc pl-6 space-y-1 mt-2">
-              <li>To provide and operate the Cannalife Co POS platform</li>
+              <li>To provide and operate the Canna Life Co POS platform</li>
               <li>To create and manage user accounts and company profiles</li>
               <li>To process point-of-sale transactions and maintain sales records</li>
               <li>To manage membership registrations, loyalty programmes, and store credit</li>
@@ -163,7 +163,7 @@ export default function PrivacyPolicy() {
           </Section>
 
           <Section title="13. Children's Personal Information">
-            <p>Cannalife Co is not intended for use by persons under the age of 18. We do not knowingly collect personal information from children. In terms of Section 35 of POPIA, processing of a child's personal information requires consent from a competent person.</p>
+            <p>Canna Life Co is not intended for use by persons under the age of 18. We do not knowingly collect personal information from children. In terms of Section 35 of POPIA, processing of a child's personal information requires consent from a competent person.</p>
           </Section>
 
           <Section title="14. Complaints">
@@ -178,7 +178,7 @@ export default function PrivacyPolicy() {
 
           <Section title="15. Contact Us">
             <div className="bg-muted/50 rounded-lg p-4">
-              <p><strong>Cannalife Co / Lereko Digital (Pty) Ltd</strong></p>
+              <p><strong>Canna Life Co / Lereko Digital (Pty) Ltd</strong></p>
               <p>Email: info@cannalife.co.za</p>
               <p>Privacy: privacy@cannalife.co.za</p>
               <p>Website: pos.cannalife.co.za</p>

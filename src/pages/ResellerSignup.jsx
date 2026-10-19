@@ -56,7 +56,7 @@ export default function ResellerSignup() {
             <CheckCircle className="w-8 h-8 text-green-500" />
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Application Submitted!</h2>
-          <p className="text-gray-400 mb-6">Thanks for applying to become a Cannalife Co reseller. We will review your application and get back to you shortly.</p>
+          <p className="text-gray-400 mb-6">Thanks for applying to become a Canna Life Co reseller. We will review your application and get back to you shortly.</p>
           <Link to="/reseller/login">
             <Button className="bg-green-600 hover:bg-green-700">Go to Login <ArrowRight className="w-4 h-4 ml-2" /></Button>
           </Link>
@@ -73,7 +73,7 @@ export default function ResellerSignup() {
             <Leaf className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white">Become a Reseller</h1>
-          <p className="text-gray-400 mt-2">Join the Cannalife Co reseller program and earn commissions</p>
+          <p className="text-gray-400 mt-2">Join the Canna Life Co reseller program and earn commissions</p>
         </div>
         <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 p-8">
           <form onSubmit={handleSignup} className="space-y-4">

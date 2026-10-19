@@ -1,6 +1,6 @@
-# Cannalife Co POS
+# Canna Life Co POS
 
-Cannabis POS, membership and club management platform for Cannalife Co — a white label of Budify, operated by TJ Spares (Pty) Ltd t/a Lereko Digital.
+Cannabis POS, membership and club management platform for Canna Life Co — a white label of Budify, operated by TJ Spares (Pty) Ltd t/a Lereko Digital.
 
 ## Stack
 - React + Vite
@@ -12,7 +12,7 @@ Cannabis POS, membership and club management platform for Cannalife Co — a whi
 All customer-visible identity lives in `src/lib/brand.js`. Logo: `src/cannalife-logo.png`. Icons: `public/icon-*.png`, `public/cannalife-icon.svg`. Placeholder logo/icons were generated; replace with the client's artwork (same filenames and sizes). Domain assumed to be `cannalife.co.za` — search-and-replace if different.
 
 ## Setup
-1. Create a **dedicated** Supabase project for Cannalife Co (do not reuse the Budify or CannaGQ project).
+1. Create a **dedicated** Supabase project for Canna Life Co (do not reuse the Budify or CannaGQ project).
 2. Apply the base Budify schema, then everything in `supabase/migrations/` in order. (`budify-schema.sql` in the source zip was empty — export the schema from the Budify project.)
 3. `cp .env.example .env` and fill in the new project's URL and anon key.
 4. Deploy `supabase/functions/*` and follow `supabase/functions/PAYCLOUD_SETUP.md` with Cannalife's own PayCloud app credentials.

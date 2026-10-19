@@ -154,9 +154,9 @@ export default function ResellerLeaderboard() {
         <h3 className="font-semibold text-white mb-3">🏆 Top Seller Prizes</h3>
         <div className="space-y-2">
           {[
-            { place: '🥇 1st Place', prize: 'R500 cash + Cannalife Co merchandise + Extra commission' },
-            { place: '🥈 2nd Place', prize: 'R250 cash + Cannalife Co merchandise' },
-            { place: '🥉 3rd Place', prize: 'R100 cash + Cannalife Co merchandise' },
+            { place: '🥇 1st Place', prize: 'R500 cash + Canna Life Co merchandise + Extra commission' },
+            { place: '🥈 2nd Place', prize: 'R250 cash + Canna Life Co merchandise' },
+            { place: '🥉 3rd Place', prize: 'R100 cash + Canna Life Co merchandise' },
           ].map(function(p) {
             return (
               <div key={p.place} className="flex items-center gap-3 py-2">

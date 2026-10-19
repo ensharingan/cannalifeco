@@ -1,12 +1,12 @@
 -- ============================================================================
--- Cannalife Co — One-call accounting bootstrap for a club
+-- Canna Life Co — One-call accounting bootstrap for a club
 -- ----------------------------------------------------------------------------
 -- acc_bootstrap_company() gives a club a working set of books in one call:
 -- SA tax types, a cannabis-club chart of accounts, a financial year with 12
 -- periods, the posting map, and a first cash book on the bank account.
 --
 -- Idempotent: run it again and it fills in what is missing without duplicating
--- what is already there. That matters because Cannalife Co onboards franchisee
+-- what is already there. That matters because Canna Life Co onboards franchisee
 -- stores one at a time.
 -- ============================================================================
 

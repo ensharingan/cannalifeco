@@ -1,5 +1,5 @@
 -- ============================================================================
--- Cannalife Co — Accounting posting routines, balances and reporting helpers
+-- Canna Life Co — Accounting posting routines, balances and reporting helpers
 -- ----------------------------------------------------------------------------
 -- Nothing in the UI writes to gl_transactions directly. Every posting goes
 -- through one of the acc_post_* functions here, which validate the batch,

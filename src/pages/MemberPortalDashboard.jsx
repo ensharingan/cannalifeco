@@ -524,8 +524,8 @@ export default function MemberPortalDashboard() {
     ctx.font = "32px serif"; ctx.fillStyle = "#22c55e";
     ctx.fillText("🌿", 40, 70);
     ctx.font = "bold 34px Arial"; ctx.fillStyle = "#ffffff";
-    ctx.fillText("Cannalife Co", 82, 68);
-    var wordmarkWidth = ctx.measureText("Cannalife Co").width;
+    ctx.fillText("Canna Life Co", 82, 68);
+    var wordmarkWidth = ctx.measureText("Canna Life Co").width;
     ctx.fillStyle = "#22c55e";
     rr(82 + wordmarkWidth + 12, 40, 66, 30, 8); ctx.fill();
     ctx.fillStyle = "#0a0e0a"; ctx.font = "bold 15px Arial";
@@ -615,7 +615,7 @@ export default function MemberPortalDashboard() {
     // Footer strip
     ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fillRect(0, 536, 1000, 44);
     ctx.fillStyle = "#6b7280"; ctx.font = "13px Arial";
-    ctx.fillText("Powered by Cannalife Co POS  •  pos.cannalife.co.za", 40, 562);
+    ctx.fillText("Powered by Canna Life Co POS  •  pos.cannalife.co.za", 40, 562);
 
     var link = document.createElement("a");
     link.download = "membership-card-" + (member.membership_id || "card") + ".png";
@@ -895,7 +895,7 @@ export default function MemberPortalDashboard() {
                           <div>
                             <div style={s.cardBrandRow}>
                               <span style={{ fontSize: "16px" }}>🌿</span>
-                              <span style={s.cardBrandWordmark}>Cannalife Co</span>
+                              <span style={s.cardBrandWordmark}>Canna Life Co</span>
                               <span style={s.cardBrandPill}>POS</span>
                             </div>
                             <div style={s.cardSubtitle}>CANNABIS CLUB MEMBERSHIP</div>
@@ -968,7 +968,7 @@ export default function MemberPortalDashboard() {
                           <div>
                             <div style={s.cardBrandRow}>
                               <span style={{ fontSize: "16px" }}>🌿</span>
-                              <span style={s.cardBrandWordmark}>Cannalife Co</span>
+                              <span style={s.cardBrandWordmark}>Canna Life Co</span>
                               <span style={s.cardBrandPill}>POS</span>
                             </div>
                             <div style={s.cardSubtitle}>CANNABIS CLUB MEMBERSHIP</div>
@@ -992,7 +992,7 @@ export default function MemberPortalDashboard() {
                           )}
                         </div>
 
-                        <div style={s.cardBackTitle}>CANNALIFE CO POS · DETAILS</div>
+                        <div style={s.cardBackTitle}>CANNA LIFE CO POS · DETAILS</div>
 
                         <div style={s.cardBackDetailsRow}>
                           <div>
@@ -1367,7 +1367,7 @@ export default function MemberPortalDashboard() {
       </div>
 
       <div style={{ textAlign: "center", padding: "8px 20px 32px", color: "#4b5563", fontSize: "11px" }}>
-        🌿 Powered by <span style={{ color: "#22c55e", fontWeight: "600" }}>Cannalife Co</span>
+        🌿 Powered by <span style={{ color: "#22c55e", fontWeight: "600" }}>Canna Life Co</span>
       </div>
 
       {/* FLOATING CART BAR */}

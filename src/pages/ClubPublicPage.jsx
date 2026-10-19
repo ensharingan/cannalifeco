@@ -429,7 +429,7 @@ export default function ClubPublicPage() {
         <p className="text-xs text-muted-foreground">
           {displayName} · Powered by{" "}
           <a href="https://www.cannalife.co.za" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">
-            Cannalife Co
+            Canna Life Co
           </a>
         </p>
       </div>

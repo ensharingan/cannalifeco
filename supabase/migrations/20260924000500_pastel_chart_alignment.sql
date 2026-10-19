@@ -1,5 +1,5 @@
 -- ============================================================================
--- Cannalife Co — Align the chart of accounts with the client's Pastel ledger
+-- Canna Life Co — Align the chart of accounts with the client's Pastel ledger
 -- ----------------------------------------------------------------------------
 -- Source: "General Ledger Master Listing" printed from the client's Pastel on
 -- 23/09/2026 (Aruzascope (Pty) Ltd) — 120 accounts, Financial Categories
@@ -20,7 +20,7 @@
 --   4. Splits settlement discount into Discount Received (2700) and Discount
 --      Allowed (3550), as Pastel does.
 --   5. Ties each store's bank account (Bank BW … Bank WP) to its own cash book.
---   6. Re-charts companies that were bootstrapped with the first Cannalife Co chart
+--   6. Re-charts companies that were bootstrapped with the first Canna Life Co chart
 --      (acc_align_chart_to_pastel) — in place, never touching posted ledger rows.
 --   7. Fixes the tax report counting the VAT line itself inside "output net".
 --
@@ -700,7 +700,7 @@ end;
 $$;
 
 
--- 4c. Re-chart a company that was bootstrapped with the first Cannalife Co chart.
+-- 4c. Re-chart a company that was bootstrapped with the first Canna Life Co chart.
 --
 --   • Only accounts whose code AND name still match the original bootstrap are
 --     touched; anything the club added or renamed is left alone.

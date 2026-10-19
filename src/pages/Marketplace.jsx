@@ -93,7 +93,7 @@ export default function Marketplace() {
     const number = (sup.whatsapp || sup.phone).replace(/\D/g, "");
     const fullNumber = number.startsWith("0") ? "27" + number.slice(1) : number;
     const msg = encodeURIComponent(
-      `Hi ${sup.business_name}, I'm interested in your product "${product.name}" listed on Cannalife Co Marketplace. Could you share more details?`
+      `Hi ${sup.business_name}, I'm interested in your product "${product.name}" listed on Canna Life Co Marketplace. Could you share more details?`
     );
     window.open(`https://wa.me/${fullNumber}?text=${msg}`, "_blank");
   };
@@ -104,9 +104,9 @@ export default function Marketplace() {
       toast.error("No email available for this supplier");
       return;
     }
-    const subject = encodeURIComponent(`Enquiry about ${product.name} - Cannalife Co Marketplace`);
+    const subject = encodeURIComponent(`Enquiry about ${product.name} - Canna Life Co Marketplace`);
     const body = encodeURIComponent(
-      `Hi ${sup.business_name},\n\nI'm interested in your product "${product.name}" listed on Cannalife Co Marketplace.\n\nCould you share pricing, availability, and delivery details?\n\nThanks`
+      `Hi ${sup.business_name},\n\nI'm interested in your product "${product.name}" listed on Canna Life Co Marketplace.\n\nCould you share pricing, availability, and delivery details?\n\nThanks`
     );
     window.open(`mailto:${sup.email}?subject=${subject}&body=${body}`);
   };

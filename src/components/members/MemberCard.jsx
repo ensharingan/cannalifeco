@@ -33,7 +33,7 @@ const membershipColors = {
 
 export default function MemberCard({ member }) {
   var { company, companyId } = useCompany();
-  var companyName = (company && (company.trading_name || company.company_name)) || "CANNALIFE CO";
+  var companyName = (company && (company.trading_name || company.company_name)) || "CANNA LIFE CO";
 
   var [thresholds, setThresholds] = useState({
     bronze: 0, silver: 500, gold: 1500, platinum: 5000,

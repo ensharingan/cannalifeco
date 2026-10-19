@@ -56,7 +56,7 @@ export default function DataSubjectRequest() {
           <CheckCircle className="w-16 h-16 text-green-600 mx-auto" />
           <h1 className="text-2xl font-bold">Request Submitted</h1>
           <p className="text-muted-foreground">Your data subject request has been received. We will respond within 30 days as required by POPIA. You will receive a response at {form.requester_email}.</p>
-          <Button onClick={function () { navigate("/"); }} className="mt-4">Return to Cannalife Co</Button>
+          <Button onClick={function () { navigate("/"); }} className="mt-4">Return to Canna Life Co</Button>
         </div>
       </div>
     );

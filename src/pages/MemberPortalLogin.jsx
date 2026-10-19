@@ -285,7 +285,7 @@ export default function MemberPortalLogin() {
           fontSize: "12px",
           marginTop: "24px",
         }}>
-          🌿 Powered by <span style={{ color: "#22c55e", fontWeight: "600" }}>Cannalife Co</span>
+          🌿 Powered by <span style={{ color: "#22c55e", fontWeight: "600" }}>Canna Life Co</span>
         </p>
       </div>
     </div>

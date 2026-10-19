@@ -96,7 +96,7 @@ export default function TransferDocumentModal({ batchId, open, onClose }) {
   const totalUnits = lines.reduce((s, l) => s + l.quantity, 0);
   const totalCost = lines.reduce((s, l) => s + l.lineCost, 0);
   const docNo = batch ? `DC-${batch.id.slice(0, 8).toUpperCase()}` : "";
-  const companyName = company?.trading_name || company?.company_name || "Cannalife Co";
+  const companyName = company?.trading_name || company?.company_name || "Canna Life Co";
 
   const print = () => window.print();
 

@@ -31,7 +31,7 @@ export default function ResellerLayout() {
       <aside className="hidden md:flex flex-col w-64 bg-gray-900 border-r border-gray-800">
         <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-800">
           <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center"><Leaf className="w-5 h-5 text-white" /></div>
-          <div><h1 className="font-bold text-lg text-white">Cannalife Co</h1><p className="text-[10px] text-gray-500 -mt-1 tracking-wider uppercase">Reseller Portal</p></div>
+          <div><h1 className="font-bold text-lg text-white">Canna Life Co</h1><p className="text-[10px] text-gray-500 -mt-1 tracking-wider uppercase">Reseller Portal</p></div>
         </div>
         {reseller && <div className="px-4 pt-4 pb-2"><StatusBadge status={reseller.status} /></div>}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -57,7 +57,7 @@ export default function ResellerLayout() {
 
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2"><div className="w-7 h-7 bg-green-600 rounded-lg flex items-center justify-center"><Leaf className="w-4 h-4 text-white" /></div><span className="font-bold text-white">Cannalife Co</span></div>
+        <div className="flex items-center gap-2"><div className="w-7 h-7 bg-green-600 rounded-lg flex items-center justify-center"><Leaf className="w-4 h-4 text-white" /></div><span className="font-bold text-white">Canna Life Co</span></div>
         <button onClick={() => setMobileOpen(!mobileOpen)} className="text-gray-400">{mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}</button>
       </div>
       {mobileOpen && (

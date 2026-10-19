@@ -89,7 +89,7 @@ export default function ResetPassword() {
     <div className="fixed inset-0 flex items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-2">
-          <img src={cannalifeLogo} alt="Cannalife Co POS" className="h-16 w-auto mx-auto mb-2" />
+          <img src={cannalifeLogo} alt="Canna Life Co POS" className="h-16 w-auto mx-auto mb-2" />
           <h1 className="text-2xl font-bold text-gray-900">Set new password</h1>
           <p className="text-sm text-gray-500">Enter a new password for your account</p>
         </div>

@@ -1,7 +1,7 @@
 /**
  * brand.js — single source of truth for white-label identity.
  *
- * This build is the Cannalife Co white label of the Budify platform. Everything
+ * This build is the Canna Life Co white label of the Budify platform. Everything
  * customer-visible that carries a name, a colour or a logo reads from here, so
  * spinning up another licensee is a matter of editing this file and dropping a
  * new logo into src/, not grepping the codebase for "Budify".
@@ -13,9 +13,9 @@
 
 export const BRAND = {
   // Displayed wherever the product is named.
-  name: 'Cannalife Co',
-  productName: 'Cannalife Co POS',
-  legalName: 'Cannalife Co',
+  name: 'Canna Life Co',
+  productName: 'Canna Life Co POS',
+  legalName: 'Canna Life Co',
   tagline: 'Point of Sale & Club Management',
 
   // Falls back to the wordmark below when logoSrc is null.

@@ -168,7 +168,7 @@ export default function VatReport() {
 
   var downloadCsv = function () {
     var lines = [];
-    lines.push(["Cannalife Co VAT Report"]);
+    lines.push(["Canna Life Co VAT Report"]);
     lines.push([company ? company.company_name : ""]);
     lines.push(["VAT Number", company ? company.vat_number : ""]);
     lines.push(["Period", fromDate + " to " + toDate]);

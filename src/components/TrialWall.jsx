@@ -91,7 +91,7 @@ export default function TrialWall({ children }) {
             <p className="text-muted-foreground mt-2">
               Your 7-day free trial expired on {trialInfo?.endsAt
                 ? new Date(trialInfo.endsAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
-                : 'recently'}. Subscribe to continue using Cannalife Co.
+                : 'recently'}. Subscribe to continue using Canna Life Co.
             </p>
           </div>
           <div className="space-y-3">

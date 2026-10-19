@@ -1,5 +1,5 @@
 -- ============================================================================
--- Cannalife Co — Row level security for the accounting module
+-- Canna Life Co — Row level security for the accounting module
 -- ----------------------------------------------------------------------------
 -- Every accounting table is company-scoped AND role-scoped: only owners,
 -- managers and superadmins see the books at all. Cashiers get nothing, which

@@ -261,7 +261,7 @@ export default function Cashiers() {
     const loginWith = credentialsDialog.isPhone
       ? `Phone: ${credentialsDialog.identifier}`
       : `Email: ${credentialsDialog.email}`;
-    const text = `Cannalife Co POS Login\n\n${loginWith}\nPassword: ${credentialsDialog.password}${credentialsDialog.pin ? `\nPIN: ${credentialsDialog.pin}` : ''}${credentialsDialog.storeNames ? `\nStores: ${credentialsDialog.storeNames}` : ''}\n\nLogin at: ${window.location.origin}/#/login`;
+    const text = `Canna Life Co POS Login\n\n${loginWith}\nPassword: ${credentialsDialog.password}${credentialsDialog.pin ? `\nPIN: ${credentialsDialog.pin}` : ''}${credentialsDialog.storeNames ? `\nStores: ${credentialsDialog.storeNames}` : ''}\n\nLogin at: ${window.location.origin}/#/login`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     toast.success('Credentials copied to clipboard');
@@ -488,7 +488,7 @@ export default function Cashiers() {
           <DialogHeader><DialogTitle>Create Cashier Login Account</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p id="create-account-desc" className="text-sm text-muted-foreground">
-              Creates a full Cannalife Co login. Assign to one or more stores — if multiple, the cashier picks which store when opening their shift.
+              Creates a full Canna Life Co login. Assign to one or more stores — if multiple, the cashier picks which store when opening their shift.
             </p>
             <div>
               <Label className="text-xs">Full Name *</Label>

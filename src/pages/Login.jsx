@@ -64,7 +64,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src={cannalifeLogo} alt="Cannalife Co POS" className="h-20 w-auto mx-auto mb-3" />
+          <img src={cannalifeLogo} alt="Canna Life Co POS" className="h-20 w-auto mx-auto mb-3" />
           <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
         </div>
 

@@ -285,7 +285,7 @@ function Shell({ children, club }) {
         </div>
         <div className="p-6">{children}</div>
         <div className="px-6 py-3 bg-zinc-50 border-t border-zinc-200">
-          <p className="text-[11px] text-zinc-400">Powered by Cannalife Co · cannalife.co.za</p>
+          <p className="text-[11px] text-zinc-400">Powered by Canna Life Co · cannalife.co.za</p>
         </div>
       </div>
     </div>

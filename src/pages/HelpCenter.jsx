@@ -20,7 +20,7 @@ const MANUAL_SECTIONS = [
   {
     icon: Zap, title: "Getting Started", color: "text-emerald-400",
     articles: [
-      { title: "Logging in & navigating Cannalife Co", content: "Open Cannalife Co at pos.cannalife.co.za. Enter your email and password. Select your Active Store from the dropdown at the top left. You'll land on the Dashboard which shows today's sales, revenue, and quick links to all sections." },
+      { title: "Logging in & navigating Canna Life Co", content: "Open Canna Life Co at pos.cannalife.co.za. Enter your email and password. Select your Active Store from the dropdown at the top left. You'll land on the Dashboard which shows today's sales, revenue, and quick links to all sections." },
       { title: "Understanding your Dashboard", content: "The Dashboard shows today's sales performance, revenue vs expenses, recent orders, and activity. Use the left sidebar to navigate to POS, Members, Products, Inventory, Orders, Finances, Loyalty, Suppliers, and Settings." },
       { title: "User roles & what each can access", content: "Owner: Full access to all features including billing and settings.\nManager: POS, Members, Products, Inventory, Orders, Finances, Reports, Settings.\nStaff: POS, Members, Products, Orders.\nCashier: POS only." },
     ]
@@ -28,7 +28,7 @@ const MANUAL_SECTIONS = [
   {
     icon: ShoppingCart, title: "Point of Sale (POS)", color: "text-blue-400",
     articles: [
-      { title: "Processing a sale step by step", content: "1. Click POS in the left menu.\n2. Search for a product by name or scan its barcode.\n3. Tap the product to add it to the cart.\n4. Search and select the member before paying.\n5. Choose payment method: Cash, Card, or other.\n6. For cash — enter the amount tendered and Cannalife Co calculates change.\n7. Confirm the transaction. Receipt can be printed or sent digitally." },
+      { title: "Processing a sale step by step", content: "1. Click POS in the left menu.\n2. Search for a product by name or scan its barcode.\n3. Tap the product to add it to the cart.\n4. Search and select the member before paying.\n5. Choose payment method: Cash, Card, or other.\n6. For cash — enter the amount tendered and Canna Life Co calculates change.\n7. Confirm the transaction. Receipt can be printed or sent digitally." },
       { title: "Linking a member to a sale", content: "Always link sales to a member for loyalty point tracking and records. Before confirming payment, search for the member by name or scan their QR code. Select the correct member from results. The sale will be linked to their profile and loyalty points will be added automatically." },
       { title: "Applying loyalty points at checkout", content: "During a sale, open the member's profile at the top of the POS. Check their available loyalty points. Apply points as a discount before confirming payment. Points will be deducted automatically once the sale is confirmed." },
       { title: "Processing refunds", content: "Go to Orders in the left menu. Find the original order using search or date filter. Click the order to open it. Select Refund and follow the prompts. Note: refunds may require manager approval depending on your store settings." },
@@ -57,7 +57,7 @@ const MANUAL_SECTIONS = [
     articles: [
       { title: "Viewing your sales reports", content: "Go to Reports or click Dashboard. Select a period: Daily, Weekly, Monthly, or Date Range. View: Total Revenue, Expenses, Net Profit, Number of Orders. Use the Revenue & Expenses chart to identify trends. Click Export PDF to download." },
       { title: "Recording expenses", content: "Go to Finances in the left menu. Click Add Expense. Enter the amount, category, description, and date. All expenses are tracked in real time and appear in your profit calculations." },
-      { title: "End-of-day reconciliation", content: "Run the end-of-day sales report and Export PDF. Reconcile cash in the till against Cannalife Co totals. Log any expenses. Check inventory and flag low stock. Log out of all devices." },
+      { title: "End-of-day reconciliation", content: "Run the end-of-day sales report and Export PDF. Reconcile cash in the till against Canna Life Co totals. Log any expenses. Check inventory and flag low stock. Log out of all devices." },
     ]
   },
   {
@@ -449,14 +449,14 @@ export default function HelpCenter() {
         <div className="space-y-4">
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="p-4 border-b border-border">
-              <h3 className="font-semibold text-sm">Getting Started with Cannalife Co</h3>
+              <h3 className="font-semibold text-sm">Getting Started with Canna Life Co</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Full walkthrough of the platform for new owners and staff</p>
             </div>
             <div className="aspect-video bg-muted/30 flex items-center justify-center">
               <iframe
                 className="w-full h-full"
                 src="https://www.youtube.com/embed/t_vIGpB71Xg"
-                title="Cannalife Co Training Video"
+                title="Canna Life Co Training Video"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
@@ -757,7 +757,7 @@ export default function HelpCenter() {
 
                 {selectedTicket.admin_response && (
                   <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4">
-                    <p className="text-xs text-emerald-400 mb-1 font-medium">Cannalife Co Support Response</p>
+                    <p className="text-xs text-emerald-400 mb-1 font-medium">Canna Life Co Support Response</p>
                     <p className="text-sm whitespace-pre-line">{selectedTicket.admin_response}</p>
                   </div>
                 )}

@@ -286,7 +286,7 @@ export default function InventoryAnalytics() {
     }).join("\n");
     const supplierEmails = suppliers.map(s => s.email).filter(Boolean);
     const subject = `Purchase Order Request — ${new Date().toLocaleDateString()}`;
-    const body = `Dear Supplier,\n\nPlease find below our restocking request based on current inventory levels:\n\n${lines}\n\nKindly confirm availability and pricing at your earliest convenience.\n\nRegards,\nCannalife Co Inventory System`;
+    const body = `Dear Supplier,\n\nPlease find below our restocking request based on current inventory levels:\n\n${lines}\n\nKindly confirm availability and pricing at your earliest convenience.\n\nRegards,\nCanna Life Co Inventory System`;
 
     if (supplierEmails.length > 0) {
       for (const email of supplierEmails) {

@@ -384,7 +384,7 @@ export default function MarketplaceCompliance() {
 
       <p className="text-xs text-muted-foreground leading-relaxed">
         Documents are stored in an encrypted, private location and are visible only to your store
-        and the Cannalife Co compliance team. They are used solely to verify your eligibility to trade on
+        and the Canna Life Co compliance team. They are used solely to verify your eligibility to trade on
         the marketplace, in line with POPIA. Contact privacy@cannalife.co.za with any questions or to
         request deletion.
       </p>

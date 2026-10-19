@@ -112,7 +112,7 @@ export default function TrialDashboard() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-4">
             <Clock className="w-3 h-3" /> Free Trial Active
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Welcome to Cannalife Co</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Welcome to Canna Life Co</h1>
           <p className="text-slate-400 text-sm">
             You're on the <span className="text-emerald-400 font-semibold">{plan.name}</span> plan trial
           </p>
@@ -128,7 +128,7 @@ export default function TrialDashboard() {
               <AlertTriangle className="w-12 h-12 text-red-400 mx-auto" />
               <h2 className="text-xl font-bold text-white">Your trial has ended</h2>
               <p className="text-slate-400 text-sm max-w-md mx-auto">
-                Subscribe now to continue using Cannalife Co. Your data is safe — pick up right where you left off.
+                Subscribe now to continue using Canna Life Co. Your data is safe — pick up right where you left off.
               </p>
               <a href={paymentLink} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]">

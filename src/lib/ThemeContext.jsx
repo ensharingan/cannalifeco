@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect } from "react";
 
-// Cannalife Co is light-only per the client. This used to read/write a
+// Canna Life Co is light-only per the client. This used to read/write a
 // 'cannalife_theme' localStorage key and follow the OS preference; that's all
 // gone now — theme is hardcoded to "light" and setTheme/toggleTheme are
 // no-ops so any old caller doesn't blow up. See index.html for the matching

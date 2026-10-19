@@ -187,7 +187,7 @@ export default function SuperAdminClients() {
    *     return PACKAGE_LABELS[pkgId].price || 499;
    *
    * price_zar = 0 is FALSY. Both comped Cannafrica records carry 0, so each
-   * fell through and was billed at the R999 list price. The internal Cannalife Co
+   * fell through and was billed at the R999 list price. The internal Canna Life Co
    * account has no subscription row at all and did the same. That is exactly
    * R2,997 of revenue that does not exist, and the whole reason this tab read
    * R19,665 while the Overview tab read R12,575.
@@ -220,7 +220,7 @@ export default function SuperAdminClients() {
     try {
       var pkgId = manualPaymentForm.package;
       var price = Number(manualPaymentForm.price) || PACKAGE_LABELS[pkgId].price;
-      var description = 'Cannalife Co ' + PACKAGE_LABELS[pkgId].name + ' - Monthly subscription';
+      var description = 'Canna Life Co ' + PACKAGE_LABELS[pkgId].name + ' - Monthly subscription';
       var today = new Date().toISOString().split('T')[0];
       var nb = new Date(); nb.setDate(nb.getDate() + 30);
       var nextBilling = nb.toISOString().split('T')[0];
@@ -291,7 +291,7 @@ export default function SuperAdminClients() {
       var pkg = PACKAGE_LABELS[pkgId] || PACKAGE_LABELS.starter;
       var existingPrice = subscription && Number(subscription.price_zar) > 0 ? Number(subscription.price_zar) : null;
       var price = existingPrice || pkg.price;
-      var description = 'Cannalife Co ' + pkg.name + ' - Monthly subscription';
+      var description = 'Canna Life Co ' + pkg.name + ' - Monthly subscription';
       var invoicePayload = {
         company_id: company.id, amount_zar: price, description,
         due_date: dueDate.toISOString().split('T')[0], status: 'pending',

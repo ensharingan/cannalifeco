@@ -353,7 +353,7 @@ export default function Signup() {
       <div className="max-w-6xl mx-auto">
 
         <div className="text-center mb-6">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">Get started with Cannalife Co</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">Get started with Canna Life Co</h1>
           <p className="text-slate-400 text-base">Built for South African dispensaries and clubs</p>
           {referral && (
             <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 bg-emerald-400/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
@@ -368,7 +368,7 @@ export default function Signup() {
             <Clock className="w-5 h-5 text-emerald-400 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-emerald-400">7-Day Free Trial on all plans</p>
-              <p className="text-xs text-slate-400">Start using Cannalife Co immediately. No payment required upfront — pay only when you're ready.</p>
+              <p className="text-xs text-slate-400">Start using Canna Life Co immediately. No payment required upfront — pay only when you're ready.</p>
             </div>
           </div>
         </div>

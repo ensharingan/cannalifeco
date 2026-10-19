@@ -165,7 +165,7 @@ export default function AddClientDialog({ onClose, onSuccess }) {
             <Button
               className="flex-1 bg-emerald-600 hover:bg-emerald-700"
               onClick={() => {
-                const msg = `Welcome to Cannalife Co! 🌿\n\nYour account has been created.\n\nLogin: ${result.email}\nPassword: ${result.temp_password}\n\nComplete your payment here:\n${result.payment_link}\n\nThen log in at pos.cannalife.co.za`;
+                const msg = `Welcome to Canna Life Co! 🌿\n\nYour account has been created.\n\nLogin: ${result.email}\nPassword: ${result.temp_password}\n\nComplete your payment here:\n${result.payment_link}\n\nThen log in at pos.cannalife.co.za`;
                 copyToClipboard(msg, 'whatsapp');
               }}
             >

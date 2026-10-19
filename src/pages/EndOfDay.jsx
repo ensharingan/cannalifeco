@@ -766,7 +766,7 @@ export default function EndOfDay() {
             <div style={{ textAlign: 'center', fontSize: '10px' }}>
               <div>Cashier signature ______________________</div>
               <div style={{ marginTop: '10px' }}>Manager signature ______________________</div>
-              <div style={{ marginTop: '10px' }}>Cannalife Co</div>
+              <div style={{ marginTop: '10px' }}>Canna Life Co</div>
             </div>
           </div>
         </>

@@ -53,7 +53,7 @@ export default function SupplierLogin() {
             <div className="w-10 h-10 rounded-xl bg-green-600 flex items-center justify-center">
               <Leaf className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold">Cannalife Co</span>
+            <span className="text-2xl font-bold">Canna Life Co</span>
           </div>
           <div className="flex items-center justify-center gap-2 text-primary">
             <Store className="w-5 h-5" />
@@ -93,7 +93,7 @@ export default function SupplierLogin() {
           Not a supplier yet?{" "}
           <Link to="/supplier-signup" className="text-primary hover:underline">Sign up</Link>
           {" · "}
-          <Link to="/login" className="text-primary hover:underline">Cannalife Co Admin Login</Link>
+          <Link to="/login" className="text-primary hover:underline">Canna Life Co Admin Login</Link>
         </p>
       </div>
     </div>

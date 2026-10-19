@@ -1,7 +1,7 @@
 {
-  "name": "Cannalife Co POS",
-  "short_name": "Cannalife Co",
-  "description": "Point of Sale & Club Management System for Cannalife Co clubs",
+  "name": "Canna Life Co POS",
+  "short_name": "Canna Life Co",
+  "description": "Point of Sale & Club Management System for Canna Life Co clubs",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
