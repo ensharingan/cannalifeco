@@ -1,0 +1,36 @@
+import { useState } from "react";
+
+export default function POPIAConsent({ onConsentChange, required }) {
+  var [consented, setConsented] = useState(false);
+
+  var handleChange = function (e) {
+    var checked = e.target.checked;
+    setConsented(checked);
+    if (onConsentChange) onConsentChange(checked);
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={consented}
+          onChange={handleChange}
+          required={required}
+          className="mt-1 accent-green-600 w-4 h-4 rounded"
+        />
+        <span className="text-xs text-muted-foreground leading-relaxed">
+          I consent to the processing of my personal information in accordance with the{" "}
+          <a href="/#/privacy" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline font-medium">
+            Privacy Policy
+          </a>{" "}
+          and{" "}
+          <a href="/#/terms" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline font-medium">
+            Terms of Service
+          </a>
+          , as required by the Protection of Personal Information Act (POPIA).
+        </span>
+      </label>
+    </div>
+  );
+}

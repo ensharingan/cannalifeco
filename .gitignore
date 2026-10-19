@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+*.log
+
+budify-schema.sql
+cannakasi-schema.sql
+*-schema.sql
