@@ -13,7 +13,7 @@ All customer-visible identity lives in `src/lib/brand.js`. Logo: `src/cannalife-
 
 ## Setup
 1. Create a **dedicated** Supabase project for Canna Life Co (do not reuse the Budify or CannaGQ project).
-2. Apply the base Budify schema, then everything in `supabase/migrations/` in order. (`budify-schema.sql` in the source zip was empty — export the schema from the Budify project.)
+2. Schema is already applied to the Cannalifeco project (runqrxtdxaofnjziegyr). Run `supabase/manual/held_back_functions.sql` once in the SQL editor (auth-related functions).
 3. `cp .env.example .env` and fill in the new project's URL and anon key.
 4. Deploy `supabase/functions/*` and follow `supabase/functions/PAYCLOUD_SETUP.md` with Cannalife's own PayCloud app credentials.
 5. `npm install && npm run dev`
