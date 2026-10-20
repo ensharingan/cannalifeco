@@ -149,6 +149,15 @@ export default function Settings() {
             </div>
             <div><Label>Address</Label><Input value={form.address || ""} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} /></div>
             <div><Label>Country</Label><Input value={form.country || ""} onChange={e => setForm(p => ({ ...p, country: e.target.value }))} /></div>
+            <div>
+              <Label>Payment link</Label>
+              <Input
+                value={(form.pos_settings && form.pos_settings.payment_link_url) || ""}
+                onChange={e => setForm(p => ({ ...p, pos_settings: { ...(p.pos_settings || {}), payment_link_url: e.target.value } }))}
+                placeholder="https://pay.example.com/your-link?amount={amount}&ref={ref}"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Shown at the till under Payment Link. {"{amount}"} and {"{ref}"} are filled in per sale; leave them out for a fixed link.</p>
+            </div>
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div className="pr-4">
                 <Label>Allow selling into negative stock</Label>

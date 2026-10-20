@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Minus, Plus, Trash2, ShoppingCart, Wallet, CreditCard, Receipt, Banknote, Smartphone, ArrowLeftRight, User, Tag, CheckCircle2, Ticket, AlertTriangle, Lock, X, Percent, ChevronDown, ChevronUp } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingCart, Wallet, CreditCard, Receipt, Banknote, Smartphone, ArrowLeftRight, User, Tag, CheckCircle2, Ticket, AlertTriangle, Lock, X, Percent, ChevronDown, ChevronUp, Link2, Copy, MessageCircle } from "lucide-react";
 import { formatCurrency } from "../../lib/currency";
 import { supabase } from "@/api/supabaseClient";
 import { useCompany } from "../../lib/CompanyContext";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { openWhatsApp, memberWaNumber } from "../../lib/waPhone";
 import { cn } from "@/lib/utils";
 
 var MANAGER_ROLES = ["owner", "admin", "manager", "superadmin"];
@@ -373,6 +374,10 @@ export default function CartPanel({
   var [showSplitDialog, setShowSplitDialog] = useState(false);
   var [confirmedSplitDetails, setConfirmedSplitDetails] = useState(null);
   var [editingQty, setEditingQty] = useState({});
+  // Payment link: the link can be tweaked at the till; the sale only goes
+  // through once the cashier confirms the money has arrived.
+  var [linkOverride, setLinkOverride] = useState(null);
+  var [linkPaid, setLinkPaid] = useState(false);
 
   // Which cart line is open for editing (qty + its own discount). One at a
   // time keeps the list short on a phone.
@@ -509,6 +514,8 @@ export default function CartPanel({
   useEffect(function () {
     setConfirmedSplitDetails(null);
     setCashTendered("");
+    setLinkPaid(false);
+    setLinkOverride(null);
   }, [paymentMethod, cart]);
 
   // A finished (or cleared) sale must not leak its discounts into the next one.
@@ -608,6 +615,23 @@ export default function CartPanel({
     if (e.key === "Enter") { e.preventDefault(); handleApplyCode(); }
   };
 
+  // Payment link. The club's link lives in Settings and may carry {amount} and
+  // {ref} placeholders; without them it is used as typed.
+  var linkTemplate = (posSettings && posSettings.payment_link_url) || "";
+  var linkRef = "POS" + Date.now().toString(36).toUpperCase();
+  var resolvedLink = linkTemplate
+    .split("{amount}").join(Number(grandTotal || 0).toFixed(2))
+    .split("{ref}").join(linkRef);
+  var paymentLink = (linkOverride != null ? linkOverride : resolvedLink).trim();
+  var linkValid = /^https?:\/\//i.test(paymentLink);
+  var linkMessage = "Please pay " + formatCurrency(grandTotal) + " here: " + paymentLink;
+  var copyLink = function () {
+    if (navigator.clipboard) navigator.clipboard.writeText(paymentLink).then(function () { toast.success("Payment link copied"); });
+  };
+  var whatsappLink = function () {
+    openWhatsApp(linkMessage, selectedMember ? memberWaNumber(selectedMember) : null);
+  };
+
   var handleCheckout = function () {
     var paymentDetails;
     var effectiveMethod;
@@ -677,7 +701,8 @@ export default function CartPanel({
     && grandTotal <= 0.005
   );
 
-  var canCheckout = cart.length > 0 && paymentMethod && !isProcessing && cashOk && splitOk && voucherOk;
+  var linkOk = paymentMethod !== "payment_link" || linkPaid;
+  var canCheckout = cart.length > 0 && paymentMethod && !isProcessing && cashOk && splitOk && voucherOk && linkOk;
 
   var handleQtyChange = function (key, value) {
     setEditingQty(function (prev) { var n = { ...prev }; n[key] = value; return n; });
@@ -1085,12 +1110,55 @@ export default function CartPanel({
               <SelectContent>
                 <SelectItem value="cash"><span className="flex items-center gap-2"><Banknote className="w-4 h-4" /> Cash</span></SelectItem>
                 <SelectItem value="card"><span className="flex items-center gap-2"><CreditCard className="w-4 h-4" /> Card</span></SelectItem>
-                <SelectItem value="eft"><span className="flex items-center gap-2"><Receipt className="w-4 h-4" /> EFT</span></SelectItem>
-                <SelectItem value="mobile"><span className="flex items-center gap-2"><Smartphone className="w-4 h-4" /> Mobile Pay</span></SelectItem>
-                <SelectItem value="split"><span className="flex items-center gap-2"><ArrowLeftRight className="w-4 h-4" /> Split Payment</span></SelectItem>
-                <SelectItem value="unpaid"><span className="flex items-center gap-2"><Receipt className="w-4 h-4" /> Unpaid / Tab</span></SelectItem>
+                <SelectItem value="payment_link"><span className="flex items-center gap-2"><Link2 className="w-4 h-4" /> Payment Link</span></SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Payment link — QR, copy and WhatsApp; confirm once paid */}
+            {paymentMethod === "payment_link" && cart.length > 0 && (
+              <div className="rounded-lg border border-border p-3 space-y-2.5">
+                <Input
+                  value={linkOverride != null ? linkOverride : resolvedLink}
+                  onChange={function (e) { setLinkOverride(e.target.value); setLinkPaid(false); }}
+                  placeholder="Paste the payment link (https://...)"
+                  className="h-9 text-xs"
+                />
+                {!linkTemplate && (
+                  <p className="text-[11px] text-muted-foreground">No link saved yet. Add one under Settings → Company → Payment link, or paste it here.</p>
+                )}
+                {linkValid ? (
+                  <>
+                    <div className="flex justify-center">
+                      <img
+                        alt="Payment link QR code"
+                        width={160} height={160}
+                        className="rounded-md border border-border bg-white p-1"
+                        src={"https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=4&data=" + encodeURIComponent(paymentLink)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={copyLink}>
+                        <Copy className="w-3 h-3 mr-1" /> Copy link
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={whatsappLink}>
+                        <MessageCircle className="w-3 h-3 mr-1" /> WhatsApp
+                      </Button>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={linkPaid ? "default" : "outline"}
+                      className="w-full h-9 text-xs"
+                      onClick={function () { setLinkPaid(!linkPaid); }}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> {linkPaid ? "Payment received" : "Tap when payment has been received"}
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-amber-600">Enter a link starting with https:// to show the QR code.</p>
+                )}
+              </div>
+            )}
 
             {/* Split payment — enter amounts button */}
             {paymentMethod === "split" && (

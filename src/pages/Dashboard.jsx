@@ -140,10 +140,11 @@ var METHOD_META = {
   eft:     { label: "EFT",        color: "#f97316" },
   account: { label: "On Account", color: "#3b82f6" },
   credit:  { label: "Store Credit", color: "#a855f7" },
+  payment_link: { label: "Payment Link", color: "#14b8a6" },
   other:   { label: "Other",      color: "#eab308" },
 };
 function methodKey(m) {
-  if (m === "card" || m === "cash" || m === "eft" || m === "credit") return m;
+  if (m === "card" || m === "cash" || m === "eft" || m === "credit" || m === "payment_link") return m;
   if (m === "account" || m === "unpaid") return "account";
   return "other";
 }
