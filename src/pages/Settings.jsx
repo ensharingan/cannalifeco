@@ -10,7 +10,8 @@ import { CURRENCIES } from "../lib/currency";
 import { useCompany } from "../lib/CompanyContext";
 import { useAuth } from "../lib/AuthContext";
 import { toast } from "sonner";
-import { Copy, QrCode, ExternalLink, Download, UserPlus, Users, Trash2, Shield, Mail, Star } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { KeyRound, Copy, QrCode, ExternalLink, Download, UserPlus, Users, Trash2, Shield, Mail, Star } from "lucide-react";
 
 export default function Settings() {
   const { companyId, refresh: refreshCompany } = useCompany();
@@ -267,6 +268,27 @@ function TeamManagement({ companyId }) {
   const [removingId, setRemovingId] = useState(null);
   const [newMember, setNewMember] = useState({ email: "", password: "", full_name: "", role: defaultRole });
   const [showForm, setShowForm] = useState(false);
+  const [pinTarget, setPinTarget] = useState(null);
+  const [pinValue, setPinValue] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
+
+  const savePin = async (clear) => {
+    if (!pinTarget) return;
+    if (!clear && !/^[0-9]{4}$/.test(pinValue)) { toast.error("PIN must be exactly 4 digits"); return; }
+    setPinSaving(true);
+    try {
+      const { data, error } = await supabase.rpc('set_staff_pin', { p_user_id: pinTarget.id, p_pin: clear ? '' : pinValue });
+      if (error) throw error;
+      if (!data || !data.ok) throw new Error((data && data.error) || "Could not save PIN");
+      toast.success(clear ? "PIN removed" : "PIN saved");
+      setPinTarget(null);
+      setPinValue("");
+    } catch (err) {
+      toast.error(err.message || "Could not save PIN");
+    } finally {
+      setPinSaving(false);
+    }
+  };
 
   const ROLE_LABELS = {
     superadmin: { label: "Super Admin", color: "text-red-500 bg-red-500/10" },
@@ -453,7 +475,12 @@ function TeamManagement({ companyId }) {
                         </Select>
                       )}
                     </td>
-                    <td className="p-3 text-right">
+                    <td className="p-3 text-right whitespace-nowrap">
+                      {["owner", "manager"].includes(m.role) && (
+                        <Button variant="ghost" size="sm" onClick={() => { setPinTarget(m); setPinValue(""); }} className="text-xs gap-1">
+                          <KeyRound className="w-3 h-3" /> PIN
+                        </Button>
+                      )}
                       {!isMe && m.role !== "superadmin" && !(isManager && !["staff", "cashier"].includes(m.role)) && (
                         <Button variant="ghost" size="sm" onClick={() => handleRemove(m.id)} disabled={removingId === m.id} className="text-red-500 hover:text-red-600 text-xs">
                           {removingId === m.id ? "..." : "Remove"}
@@ -468,6 +495,23 @@ function TeamManagement({ companyId }) {
         )}
         {!loadingTeam && team.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No team members found</p>}
       </div>
+      <Dialog open={!!pinTarget} onOpenChange={(v) => { if (!v) { setPinTarget(null); setPinValue(""); } }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Approval PIN</DialogTitle>
+            <DialogDescription>
+              4-digit PIN for {pinTarget?.full_name || pinTarget?.email}. Cashiers ask this person to enter it to approve refunds.
+            </DialogDescription>
+          </DialogHeader>
+          <Input type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pinValue}
+            onChange={e => setPinValue(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            placeholder="••••" className="text-center text-2xl tracking-[0.5em] h-12" />
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => savePin(true)} disabled={pinSaving}>Remove PIN</Button>
+            <Button className="flex-1" onClick={() => savePin(false)} disabled={pinSaving || pinValue.length !== 4}>{pinSaving ? "Saving..." : "Save PIN"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-blue-400 mb-2">Role Permissions</h3>
         <div className="space-y-2 text-xs text-muted-foreground">

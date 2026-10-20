@@ -12,6 +12,7 @@ import { formatCurrency } from "../lib/currency";
 import { useCompany } from "../lib/CompanyContext";
 import { useAuth } from "@/lib/AuthContext";
 import ReceiptModal from "../components/pos/ReceiptModal";
+import ManagerPinDialog from "../components/orders/ManagerPinDialog";
 
 const statusColors = {
   completed: "bg-green-500/10 text-green-500 border-green-500/20",
@@ -674,7 +675,14 @@ export default function Orders() {
    * allocation and writes orders.refund_total. It deliberately does NOT flip
    * orders.status, so the original sale stays in the session that earned it.
    */
-  var openRefund = async function (order) {
+  // Cashiers and staff need a manager's PIN before a refund can be started.
+  var [pinOrder, setPinOrder] = useState(null);
+  var openRefund = function (order) {
+    if (isCashier) { setPinOrder(order); return; }
+    openRefundNow(order);
+  };
+
+  var openRefundNow = async function (order) {
     setRefundOrder(order);
     setRefundType(alwaysRestock ? 'return' : 'full');
     // A split sale has no single tender to reverse, so default to cash and let
@@ -1476,6 +1484,20 @@ export default function Orders() {
       <ReceiptModal receipt={reprintReceipt} onClose={function () { setReprintReceipt(null); }} />
 
       {/* Refund Dialog */}
+      <ManagerPinDialog
+        open={!!pinOrder}
+        onOpenChange={function (v) { if (!v) setPinOrder(null); }}
+        companyId={companyId}
+        title="Manager approval for refund"
+        description="Ask a manager to enter their PIN to process this refund."
+        onApproved={function (approver) {
+          var o = pinOrder;
+          setPinOrder(null);
+          toast.success("Approved by " + (approver.full_name || "manager"));
+          if (o) openRefundNow(o);
+        }}
+      />
+
       <Dialog open={showRefund} onOpenChange={setShowRefund}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>{alwaysRestock ? 'Return & Restock' : 'Refund / Return'}</DialogTitle></DialogHeader>
