@@ -37,34 +37,54 @@ const PATIENT_PATHS = ['/patients-dashboard', '/patient-intake'];
 // A club that isn't VAT-registered has nothing to file, and the page itself
 // only renders a "add your VAT number in Settings" notice — so a permanent
 // nav item leading to that notice is just clutter.
-const allNavItems = [
-  { path: "/",                       label: "Dashboard",           icon: LayoutDashboard, minRole: 'manager' },
-  { path: "/pos",                    label: "POS",                 icon: ShoppingCart,    minRole: 'cashier' },
-  { path: "/members",                label: "Members",             icon: Users,           minRole: 'cashier' },
-  { path: "/patients-dashboard",     label: "Patients (S21)",      icon: ClipboardList,   minRole: 'cashier', sub: true },
-  { path: "/patient-intake",         label: "New Intake Form",     icon: FileText,        minRole: 'cashier', sub: true },
-  { path: "/orders",                 label: "Sales",               icon: Receipt,         minRole: 'cashier' },
-  { path: "/finances",               label: "Finances",            icon: DollarSign,      minRole: 'cashier' },
-  { path: "/vat-report",             label: "VAT Report",          icon: ReceiptText,     minRole: 'owner',   sub: true, requiresVat: true },
-  { path: "/products",               label: "Products",            icon: Package,         minRole: 'manager' },
-  { path: "/inventory",              label: "Inventory",           icon: Warehouse,       minRole: 'manager' },
-  { path: "/inventory-analytics",    label: "Inventory Analytics", icon: TrendingUp,      minRole: 'manager', sub: true },
-  { path: "/stock-value-report",     label: "Stock Value Report",  icon: PackageSearch,   minRole: 'manager', sub: true },
-  { path: "/stock-counts",           label: "Stock Counts",        icon: ClipboardCheck,  minRole: 'cashier' },
-  { path: "/stores",                 label: "Stores",              icon: Store,           minRole: 'owner' },
-  { path: "/head-office",            label: "Head Office",         icon: Building2,       minRole: 'owner',   sub: true },
-  { path: "/loyalty",                label: "Loyalty",             icon: Star,            minRole: 'manager' },
-  { path: "/supplier-returns",       label: "Supplier Returns",    icon: RotateCcw,       minRole: 'manager' },
-  { path: "/supplier-payments",      label: "Suppliers",           icon: DollarSign,      minRole: 'manager' },
-  { path: "/promotions",             label: "Promotions",          icon: Tag,             minRole: 'manager' },
-  { path: "/cashier-sessions",       label: "Cashier Sessions",    icon: Clock,           minRole: 'cashier' },
-  { path: "/end-of-day",             label: "End of Day",          icon: Sunset,          minRole: 'manager' },
-  { path: "/reports",                label: "Reports",             icon: BarChart2,       minRole: 'manager' },
-  { path: "/marketing",              label: "Marketing",           icon: Megaphone,       minRole: 'owner' },
-  { path: "/staff-performance",      label: "Staff Performance",   icon: UserCircle,      minRole: 'owner' },
-  { path: "/settings",               label: "Settings",            icon: Settings,        minRole: 'manager' },
-  { path: "/help",                   label: "Help & Support",      icon: LifeBuoy,        minRole: 'cashier' },
+const NAV_GROUPS = [
+  { id: 'main',   label: null },
+  { id: 'stock',  label: 'Stock' },
+  { id: 'money',  label: 'Money' },
+  { id: 'growth', label: 'Growth' },
+  { id: 'admin',  label: 'Admin' },
 ];
+
+const allNavItems = [
+  { group: 'main',   path: "/",                    label: "Dashboard",           icon: LayoutDashboard, minRole: 'manager' },
+  { group: 'main',   path: "/pos",                 label: "POS",                 icon: ShoppingCart,    minRole: 'cashier' },
+  { group: 'main',   path: "/orders",              label: "Sales",               icon: Receipt,         minRole: 'cashier' },
+  { group: 'main',   path: "/members",             label: "Members",             icon: Users,           minRole: 'cashier' },
+  { group: 'main',   path: "/patients-dashboard",  label: "Patients (S21)",      icon: ClipboardList,   minRole: 'cashier', sub: true },
+  { group: 'main',   path: "/patient-intake",      label: "New Intake Form",     icon: FileText,        minRole: 'cashier', sub: true },
+
+  { group: 'stock',  path: "/products",            label: "Products",            icon: Package,         minRole: 'manager' },
+  { group: 'stock',  path: "/inventory",           label: "Inventory",           icon: Warehouse,       minRole: 'manager' },
+  { group: 'stock',  path: "/inventory-analytics", label: "Inventory Analytics", icon: TrendingUp,      minRole: 'manager', sub: true },
+  { group: 'stock',  path: "/stock-value-report",  label: "Stock Value Report",  icon: PackageSearch,   minRole: 'manager', sub: true },
+  { group: 'stock',  path: "/stock-counts",        label: "Stock Counts",        icon: ClipboardCheck,  minRole: 'cashier' },
+  { group: 'stock',  path: "/supplier-payments",   label: "Suppliers",           icon: DollarSign,      minRole: 'manager' },
+  { group: 'stock',  path: "/supplier-returns",    label: "Supplier Returns",    icon: RotateCcw,       minRole: 'manager', sub: true },
+
+  { group: 'money',  path: "/finances",            label: "Finances",            icon: DollarSign,      minRole: 'cashier' },
+  { group: 'money',  path: "/vat-report",          label: "VAT Report",          icon: ReceiptText,     minRole: 'owner',   sub: true, requiresVat: true },
+  { group: 'money',  path: "/cashier-sessions",    label: "Cashier Sessions",    icon: Clock,           minRole: 'cashier' },
+  { group: 'money',  path: "/end-of-day",          label: "End of Day",          icon: Sunset,          minRole: 'manager' },
+  { group: 'money',  path: "/reports",             label: "Reports",             icon: BarChart2,       minRole: 'manager' },
+
+  { group: 'growth', path: "/loyalty",             label: "Loyalty",             icon: Star,            minRole: 'manager' },
+  { group: 'growth', path: "/promotions",          label: "Promotions",          icon: Tag,             minRole: 'manager' },
+  { group: 'growth', path: "/marketing",           label: "Marketing",           icon: Megaphone,       minRole: 'owner' },
+
+  { group: 'admin',  path: "/stores",              label: "Stores",              icon: Store,           minRole: 'owner' },
+  { group: 'admin',  path: "/head-office",         label: "Head Office",         icon: Building2,       minRole: 'owner',   sub: true },
+  { group: 'admin',  path: "/staff-performance",   label: "Staff Performance",   icon: UserCircle,      minRole: 'owner' },
+  { group: 'admin',  path: "/settings",            label: "Settings",            icon: Settings,        minRole: 'manager' },
+  { group: 'admin',  path: "/help",                label: "Help & Support",      icon: LifeBuoy,        minRole: 'cashier' },
+];
+
+const COLLAPSE_KEY = 'nav_collapsed_groups';
+function loadCollapsed() {
+  try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveCollapsed(list) {
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+}
 
 export default function Layout() {
   const location = useLocation();
@@ -74,6 +94,14 @@ export default function Layout() {
   const { settings } = usePosSettings();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingPreorders, setPendingPreorders] = useState(0);
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const toggleGroup = function (id) {
+    setCollapsed(function (prev) {
+      var next = prev.includes(id) ? prev.filter(function (g) { return g !== id; }) : prev.concat(id);
+      saveCollapsed(next);
+      return next;
+    });
+  };
 
   // Member pre-orders (Shop tab in the member portal) land here as
   // orders.order_type = 'pre_order', status = 'pending'. Nothing else in the
@@ -156,32 +184,56 @@ export default function Layout() {
         {role !== 'cashier' && <StoreSelector />}
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ path, label, icon: Icon, sub }) => (
-            <Link
-              key={path}
-              to={path}
-              onClick={() => setSidebarOpen(false)}
-              className={`
-                flex items-center gap-3 rounded-lg text-sm font-medium
-                transition-all duration-200
-                ${sub ? "ml-4 px-3 py-2 text-xs" : "px-3 py-2.5"}
-                ${isActive(path)
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/20"
-                  : sub
-                    ? "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                }
-              `}
-            >
-              <Icon className={sub ? "w-3.5 h-3.5" : "w-4 h-4"} />
-              <span className="flex-1">{label}</span>
-              {path === "/orders" && pendingPreorders > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-green-500 text-white text-[10px] font-bold shrink-0">
-                  {pendingPreorders > 99 ? "99+" : pendingPreorders}
-                </span>
-              )}
-            </Link>
-          ))}
+          {NAV_GROUPS.map(function (g) {
+            var items = navItems.filter(function (i) { return i.group === g.id; });
+            if (items.length === 0) return null;
+            var hasActive = items.some(function (i) { return isActive(i.path); });
+            var isCollapsed = g.label && collapsed.includes(g.id) && !hasActive;
+            return (
+              <div key={g.id} className={g.label ? "pt-3" : ""}>
+                {g.label && (
+                  <button
+                    type="button"
+                    onClick={function () { toggleGroup(g.id); }}
+                    className="flex items-center justify-between w-full px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors"
+                  >
+                    <span>{g.label}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+                  </button>
+                )}
+                {!isCollapsed && (
+                  <div className="space-y-1">
+                    {items.map(({ path, label, icon: Icon, sub }) => (
+                      <Link
+                        key={path}
+                        to={path}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`
+                          flex items-center gap-3 rounded-lg text-sm font-medium
+                          transition-all duration-200
+                          ${sub ? "ml-4 px-3 py-2 text-xs" : "px-3 py-2.5"}
+                          ${isActive(path)
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/20"
+                            : sub
+                              ? "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          }
+                        `}
+                      >
+                        <Icon className={sub ? "w-3.5 h-3.5" : "w-4 h-4"} />
+                        <span className="flex-1">{label}</span>
+                        {path === "/orders" && pendingPreorders > 0 && (
+                          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-green-500 text-white text-[10px] font-bold shrink-0">
+                            {pendingPreorders > 99 ? "99+" : pendingPreorders}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {profile && (
