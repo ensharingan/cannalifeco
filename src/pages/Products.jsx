@@ -770,7 +770,7 @@ function ProductForm({
         <div><Label>Low Stock Threshold</Label><Input type="number" min={0} value={form.low_stock_threshold} onFocus={sel} onChange={e => update("low_stock_threshold", Math.max(0, Number(e.target.value)))} /></div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div>
           <Label>THC %</Label>
           <Input type="number" min={0} max={100} step={0.1} value={form.thc_percentage} onFocus={sel} onChange={e => update("thc_percentage", e.target.value ? Number(e.target.value) : "")} placeholder="e.g. 22" />
@@ -778,6 +778,10 @@ function ProductForm({
         <div>
           <Label>CBD %</Label>
           <Input type="number" min={0} max={100} step={0.1} value={form.cbd_percentage} onFocus={sel} onChange={e => update("cbd_percentage", e.target.value ? Number(e.target.value) : "")} placeholder="e.g. 0.5" />
+        </div>
+        <div>
+          <Label>Terpenes %</Label>
+          <Input type="number" min={0} max={100} step={0.1} value={form.terpenes_percentage} onFocus={sel} onChange={e => update("terpenes_percentage", e.target.value ? Number(e.target.value) : "")} placeholder="e.g. 2.5" />
         </div>
         <div>
           <Label>Strain Type</Label>
@@ -794,11 +798,6 @@ function ProductForm({
       </div>
 
       <div><Label>Description</Label><Input value={form.description} onChange={e => update("description", e.target.value)} placeholder="Optional description" /></div>
-
-      <div>
-        <Label>Terpenes %</Label>
-        <Input type="number" min={0} max={100} step={0.1} value={form.terpenes_percentage} onFocus={sel} onChange={e => update("terpenes_percentage", e.target.value ? Number(e.target.value) : "")} placeholder="e.g. 2.5" />
-      </div>
 
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
