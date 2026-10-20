@@ -10,7 +10,7 @@ import {
   LogOut, User, Store, Star, RotateCcw, Tag, Clock, BarChart2,
   ClipboardList, FileText, Megaphone, TrendingUp, UserCircle,
   LifeBuoy, PackageSearch, ClipboardCheck, Sunset,
-  ReceiptText, Calculator, Building2
+  ReceiptText, Building2
 } from "lucide-react";
 import cannalifeLogo from '../cannalife-logo.png';
 import StoreSelector from "./StoreSelector";
@@ -60,7 +60,6 @@ const allNavItems = [
   { path: "/cashier-sessions",       label: "Cashier Sessions",    icon: Clock,           minRole: 'cashier' },
   { path: "/end-of-day",             label: "End of Day",          icon: Sunset,          minRole: 'manager' },
   { path: "/reports",                label: "Reports",             icon: BarChart2,       minRole: 'manager' },
-  { path: "/accounting/cash-books",  label: "Accounting",          icon: Calculator,      minRole: 'manager' },
   { path: "/marketing",              label: "Marketing",           icon: Megaphone,       minRole: 'owner' },
   { path: "/staff-performance",      label: "Staff Performance",   icon: UserCircle,      minRole: 'owner' },
   { path: "/settings",               label: "Settings",            icon: Settings,        minRole: 'manager' },

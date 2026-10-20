@@ -61,32 +61,9 @@ import TillCashOuts from './pages/TillCashOuts';
 import StockCounts from './pages/StockCounts';
 import StockCountSession from './pages/StockCountSession';
 
-// Accounting module — Pastel-style cash books, journals and financial reports.
-import CashBooks from './pages/accounting/CashBooks';
-import ProcessCashBook from './pages/accounting/ProcessCashBook';
-import BankReconciliation from './pages/accounting/BankReconciliation';
-import Journals from './pages/accounting/Journals';
-import InventoryJournals from './pages/accounting/InventoryJournals';
-import TaxPeriods from './pages/accounting/TaxPeriods';
-import FinancialReports from './pages/accounting/FinancialReports';
-import GeneralLedger from './pages/accounting/GeneralLedger';
-import AccountingSetup from './pages/accounting/AccountingSetup';
-
-// The books are for owners and managers. This only hides the pages; the
-// database enforces the same rule, so a hand-typed URL gets an empty screen
-// rather than someone else's bank balance.
-const AccountingGuard = ({ children }) => {
-  const { profile } = useAuth();
-  if (!profile) return null;
-  if (profile.role !== 'owner' && profile.role !== 'manager' && profile.role !== 'superadmin') {
-    return <Navigate to="/" replace />;
-  }
-  return children;
-};
-
 // Head Office is franchise-level (multi-store) control — owners and
 // superadmins only. HeadOffice.jsx also checks this itself, so this is a
-// second line of defence, same pattern as AccountingGuard above.
+// second line of defence, same pattern as the other guards.
 const HeadOfficeGuard = ({ children }) => {
   const { profile } = useAuth();
   if (!profile) return null;
@@ -189,19 +166,6 @@ const AuthenticatedApp = () => {
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/stock-counts" element={<StockCounts />} />
         <Route path="/stock-counts/:id" element={<StockCountSession />} />
-
-        {/* Accounting — owners and managers only; the guard is enforced again by RLS. */}
-        <Route path="/accounting" element={<Navigate to="/accounting/cash-books" replace />} />
-        <Route path="/accounting/cash-books" element={<AccountingGuard><CashBooks /></AccountingGuard>} />
-        <Route path="/accounting/cash-books/:id" element={<AccountingGuard><ProcessCashBook /></AccountingGuard>} />
-        <Route path="/accounting/bank-rec" element={<AccountingGuard><BankReconciliation /></AccountingGuard>} />
-        <Route path="/accounting/journals" element={<AccountingGuard><Journals /></AccountingGuard>} />
-        <Route path="/accounting/inventory-journals" element={<AccountingGuard><InventoryJournals batchType="normal" /></AccountingGuard>} />
-        <Route path="/accounting/interstore" element={<AccountingGuard><InventoryJournals batchType="interstore" /></AccountingGuard>} />
-        <Route path="/accounting/tax-periods" element={<AccountingGuard><TaxPeriods /></AccountingGuard>} />
-        <Route path="/accounting/reports" element={<AccountingGuard><FinancialReports /></AccountingGuard>} />
-        <Route path="/accounting/ledger" element={<AccountingGuard><GeneralLedger /></AccountingGuard>} />
-        <Route path="/accounting/settings" element={<AccountingGuard><AccountingSetup /></AccountingGuard>} />
         <Route path="/print-labels" element={<PrintLabels />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/finances" element={<Finances />} />
