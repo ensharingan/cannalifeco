@@ -1110,7 +1110,7 @@ export default function CartPanel({
               <SelectContent>
                 <SelectItem value="cash"><span className="flex items-center gap-2"><Banknote className="w-4 h-4" /> Cash</span></SelectItem>
                 <SelectItem value="card"><span className="flex items-center gap-2"><CreditCard className="w-4 h-4" /> Card</span></SelectItem>
-                <SelectItem value="payment_link"><span className="flex items-center gap-2"><Link2 className="w-4 h-4" /> Payment Link</span></SelectItem>
+                <SelectItem value="payment_link"><span className="flex items-center gap-2"><Link2 className="w-4 h-4" /> Pay Link</span></SelectItem>
               </SelectContent>
             </Select>
 

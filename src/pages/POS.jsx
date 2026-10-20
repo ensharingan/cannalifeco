@@ -2161,8 +2161,6 @@ export default function POS() {
                           <SelectContent>
                             <SelectItem value="cash">Cash</SelectItem>
                             <SelectItem value="card">Card</SelectItem>
-                            <SelectItem value="eft">EFT</SelectItem>
-                            <SelectItem value="mobile">Mobile Pay</SelectItem>
                             {group.memberId && (
                               <SelectItem value="store_credit">
                                 <span className="flex items-center gap-1.5"><Wallet className="w-3 h-3" /> Store Credit</span>
@@ -2284,8 +2282,6 @@ export default function POS() {
                   <SelectContent>
                     <SelectItem value="cash"><span className="flex items-center gap-2"><Banknote className="w-4 h-4" /> Cash</span></SelectItem>
                     <SelectItem value="card"><span className="flex items-center gap-2"><CreditCard className="w-4 h-4" /> Card</span></SelectItem>
-                    <SelectItem value="eft"><span className="flex items-center gap-2"><Receipt className="w-4 h-4" /> EFT</span></SelectItem>
-                    <SelectItem value="mobile"><span className="flex items-center gap-2"><Banknote className="w-4 h-4" /> Mobile Pay</span></SelectItem>
                   </SelectContent>
                 </Select>
               </div>
