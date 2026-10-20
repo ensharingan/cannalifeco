@@ -376,6 +376,7 @@ function ProductForm({
     product_type: product?.product_type || "",
     thc_percentage: product?.thc_percentage || "",
     cbd_percentage: product?.cbd_percentage || "",
+    terpenes_percentage: product?.terpenes_percentage || "",
     strain_type: product?.strain_type || "",
     is_active: product?.is_active !== false,
     is_aging_stock: product?.is_aging_stock || false,
@@ -794,6 +795,11 @@ function ProductForm({
 
       <div><Label>Description</Label><Input value={form.description} onChange={e => update("description", e.target.value)} placeholder="Optional description" /></div>
 
+      <div>
+        <Label>Terpenes %</Label>
+        <Input type="number" min={0} max={100} step={0.1} value={form.terpenes_percentage} onFocus={sel} onChange={e => update("terpenes_percentage", e.target.value ? Number(e.target.value) : "")} placeholder="e.g. 2.5" />
+      </div>
+
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
           <Switch checked={form.is_active} onCheckedChange={v => update("is_active", v)} />
@@ -1098,7 +1104,7 @@ export default function Products() {
         stock_quantity: storeId ? 0 : stockQty,
         low_stock_threshold: data.low_stock_threshold,
         description: data.description, product_type: data.product_type,
-        thc_percentage: data.thc_percentage || null, cbd_percentage: data.cbd_percentage || null,
+        thc_percentage: data.thc_percentage || null, cbd_percentage: data.cbd_percentage || null, terpenes_percentage: data.terpenes_percentage || null,
         strain_type: data.strain_type || null, is_active: data.is_active, is_aging_stock: data.is_aging_stock,
         is_bundle: data.is_bundle,
         bundle_linked_product_id: data.is_bundle ? data.bundle_linked_product_id : null,
@@ -1163,7 +1169,7 @@ export default function Products() {
         /* stock_quantity deliberately omitted — store_inventory owns it. */
         low_stock_threshold: data.low_stock_threshold,
         description: data.description, product_type: data.product_type,
-        thc_percentage: data.thc_percentage || null, cbd_percentage: data.cbd_percentage || null,
+        thc_percentage: data.thc_percentage || null, cbd_percentage: data.cbd_percentage || null, terpenes_percentage: data.terpenes_percentage || null,
         strain_type: data.strain_type || null, is_active: data.is_active, is_aging_stock: data.is_aging_stock,
         is_bundle: data.is_bundle,
         bundle_linked_product_id: data.is_bundle ? data.bundle_linked_product_id : null,
