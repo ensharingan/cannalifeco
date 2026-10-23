@@ -9,7 +9,8 @@ import {
   LineChart, Line, Legend, CartesianGrid, ReferenceLine
 } from "recharts";
 import {
-  TrendingUp, TrendingDown, AlertTriangle, Clock, Package, ShoppingCart, RefreshCw, ArrowUpRight, Download, Send, Zap
+  TrendingUp, TrendingDown, AlertTriangle, Clock, Package, ShoppingCart, RefreshCw, ArrowUpRight, Download, Send, Zap,
+  Activity, Layers, ShieldAlert, Boxes
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +101,10 @@ export default function InventoryAnalytics() {
   const [loading, setLoading] = useState(true);
   const [sendingPO, setSendingPO] = useState(false);
   const [poSent, setPoSent] = useState(false);
+  const [horizon, setHorizon] = useState(30); // forecast window: 30 / 60 / 90 days
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("demand");
+  const [showAllRows, setShowAllRows] = useState(false);
 
   // ── Load products (per-store stock), orders, suppliers ──
   //
@@ -236,6 +241,85 @@ export default function InventoryAnalytics() {
     return { ...p, sold, turnover, revenue, dailyRate, growthRate, projectedTotal, daysUntilEmpty, suggestedReorder, forecastPoints };
   });
 
+  // ── 3-month demand analysis (three 30-day blocks) ──
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+  const daysAgoOf = (day) => Math.floor((todayMidnight.getTime() - new Date(day + "T00:00:00").getTime()) / 86400000);
+  const COVER_RISK_DAYS = 14;
+  const COVER_OVER_DAYS = 90;
+
+  const demandRows = enriched.map(p => {
+    const byDay = salesByDay[p.id] || {};
+    let b0 = 0, b1 = 0, b2 = 0; // 60-90d ago, 30-60d ago, last 30d
+    Object.keys(byDay).forEach(day => {
+      const ago = daysAgoOf(day);
+      if (ago < 0 || ago >= 90) return;
+      if (ago < 30) b2 += byDay[day];
+      else if (ago < 60) b1 += byDay[day];
+      else b0 += byDay[day];
+    });
+    const sold3m = b0 + b1 + b2;
+    const avgMonth = sold3m / 3;
+    const avgDay = sold3m / 90;
+    const stock = Math.max(0, p.stock_quantity || 0);
+    const cover = avgDay > 0 ? stock / avgDay : null;
+    const trend = b1 > 0 ? ((b2 - b1) / b1) * 100 : (b2 > 0 ? 100 : null);
+    const orderQty = Math.max(0, Math.ceil(avgDay * 30 - stock));
+    let status = "healthy";
+    if (p.is_active === false) status = "inactive";
+    else if (stock <= 0 && sold3m > 0) status = "out";
+    else if (stock <= 0) status = "empty";
+    else if (sold3m === 0) status = "nodemand";
+    else if (cover < COVER_RISK_DAYS) status = "risk";
+    else if (cover > COVER_OVER_DAYS) status = "over";
+    return { ...p, b0, b1, b2, sold3m, avgMonth, avgDay, stockQty: stock, cover, trend, orderQty, status, abc: "C" };
+  });
+
+  // ABC class: A = the products driving the first 80% of units sold, B = next 15%
+  (function () {
+    const total = demandRows.reduce((sum, r) => sum + r.sold3m, 0);
+    if (total <= 0) return;
+    let cum = 0;
+    [...demandRows].filter(r => r.sold3m > 0).sort((a, b) => b.sold3m - a.sold3m).forEach(r => {
+      const before = cum / total;
+      cum += r.sold3m;
+      r.abc = before < 0.8 ? "A" : before < 0.95 ? "B" : "C";
+    });
+  })();
+
+  const classACount = demandRows.filter(r => r.abc === "A" && r.sold3m > 0).length;
+  const totalAvgMonth = demandRows.reduce((sum, r) => sum + r.avgMonth, 0);
+  const totalAvgDay = demandRows.reduce((sum, r) => sum + r.avgDay, 0);
+  const totalStockUnits = demandRows.reduce((sum, r) => sum + (r.status === "inactive" ? 0 : r.stockQty), 0);
+  const stockCoverDays = totalAvgDay > 0 ? Math.round(totalStockUnits / totalAvgDay) : null;
+  const riskRows = demandRows.filter(r => r.status === "risk");
+  const overRows = demandRows.filter(r => r.status === "over");
+  const overUnits = overRows.reduce((sum, r) => sum + r.stockQty, 0);
+  const emptyCount = demandRows.filter(r => r.status === "out" || r.status === "empty").length;
+  const monthlyDemandChart = [
+    { label: "60–90d ago", units: demandRows.reduce((sum, r) => sum + r.b0, 0) },
+    { label: "30–60d ago", units: demandRows.reduce((sum, r) => sum + r.b1, 0) },
+    { label: "Last 30d", units: demandRows.reduce((sum, r) => sum + r.b2, 0) },
+  ];
+  const STATUS_META = {
+    out: { label: "Out of stock", cls: "bg-red-500/10 text-red-500" },
+    empty: { label: "Empty", cls: "bg-muted text-muted-foreground" },
+    risk: { label: "Stockout risk", cls: "bg-orange-500/10 text-orange-500" },
+    healthy: { label: "Healthy", cls: "bg-green-500/10 text-green-500" },
+    over: { label: "Overstocked (>90d)", cls: "bg-blue-500/10 text-blue-400" },
+    nodemand: { label: "No demand", cls: "bg-muted text-muted-foreground" },
+    inactive: { label: "Inactive", cls: "bg-muted text-muted-foreground" },
+  };
+  const visibleDemandRows = demandRows
+    .filter(r => statusFilter === "all" || r.status === statusFilter)
+    .sort((a, b) => {
+      if (sortBy === "cover") return (a.cover ?? 99999) - (b.cover ?? 99999);
+      if (sortBy === "stock") return b.stockQty - a.stockQty;
+      if (sortBy === "order") return b.orderQty - a.orderQty;
+      return b.avgMonth - a.avgMonth;
+    });
+  const shownDemandRows = showAllRows ? visibleDemandRows : visibleDemandRows.slice(0, 50);
+  const fmtNum = (n) => Math.round(n).toLocaleString("en-ZA");
+
   const topSellers = [...enriched].sort((a, b) => b.sold - a.sold).slice(0, 10);
   const agingStock = enriched.filter(p => p.is_aging_stock || (p.sold === 0 && (p.stock_quantity || 0) > 0));
   const lowStock = enriched
@@ -259,8 +343,8 @@ export default function InventoryAnalytics() {
       .sort(function (a, b) { return b.sold - a.sold; });
   })();
 
-  // 30-day forecast chart data
-  const forecastChartData = buildForecastChart(enriched, 5);
+  // 30 / 60 / 90-day forecast chart data
+  const forecastChartData = buildForecastChart(enriched, 5, horizon);
   const forecastProductNames = forecastChartData.length > 0
     ? Object.keys(forecastChartData[0]).filter(k => k !== "date")
     : [];
@@ -331,6 +415,129 @@ export default function InventoryAnalytics() {
         <StatCard icon={Clock} label="Aging Stock" value={agingStock.length} sub="no/slow movement" color="orange" />
       </div>
 
+      {/* Demand KPIs (3-month basis) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Activity} label="Avg Monthly Demand" value={fmtNum(totalAvgMonth)} sub="units / month · 3-month basis" color="primary" />
+        <StatCard icon={Layers} label="Stock Cover" value={stockCoverDays != null ? stockCoverDays.toLocaleString("en-ZA") + "d" : "—"} sub={fmtNum(totalStockUnits) + " units on hand"} color="green" />
+        <StatCard icon={ShieldAlert} label="Stockout Risk" value={riskRows.length} sub={"under " + COVER_RISK_DAYS + " days of cover"} color="red" />
+        <StatCard icon={Boxes} label="Overstocked" value={overRows.length} sub={fmtNum(overUnits) + " units > " + COVER_OVER_DAYS + " days cover"} color="yellow" />
+      </div>
+
+      {/* Demand by Month */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Activity className="w-5 h-5 text-primary" />
+          <h2 className="font-semibold">Demand by Month</h2>
+          <span className="text-xs text-muted-foreground ml-1">(units sold per 30-day block, 3-month)</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          {classACount > 0 ? classACount + (classACount === 1 ? " product drives" : " products drive") + " 80% of units sold (Class A)." : "No sales in the last 90 days yet."}
+        </p>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={monthlyDemandChart} barCategoryGap="35%">
+            <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+            <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+            <Tooltip
+              contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+              formatter={(v) => [fmtNum(v) + " units", "Sold"]}
+            />
+            <Bar dataKey="units" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Stock vs Demand */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Layers className="w-5 h-5 text-primary" />
+            <h2 className="font-semibold">Stock vs Demand</h2>
+            <span className="text-xs text-muted-foreground ml-1">(3-month average)</span>
+          </div>
+          <div className="flex gap-2">
+            <select value={statusFilter} onChange={function (e) { setStatusFilter(e.target.value); setShowAllRows(false); }}
+              className="h-9 rounded-lg border border-border bg-background px-3 text-xs">
+              <option value="all">All statuses</option>
+              <option value="out">Out of stock</option>
+              <option value="risk">Stockout risk</option>
+              <option value="healthy">Healthy</option>
+              <option value="over">Overstocked (&gt;90d)</option>
+              <option value="nodemand">No demand</option>
+            </select>
+            <select value={sortBy} onChange={function (e) { setSortBy(e.target.value); }}
+              className="h-9 rounded-lg border border-border bg-background px-3 text-xs">
+              <option value="demand">Sort: Avg monthly demand</option>
+              <option value="cover">Sort: Lowest cover</option>
+              <option value="stock">Sort: Most in stock</option>
+              <option value="order">Sort: Order to cover 30d</option>
+            </select>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground text-xs uppercase">
+                <th className="text-left pb-2 pr-4">Product</th>
+                <th className="text-right pb-2 px-3">In stock</th>
+                <th className="text-right pb-2 px-3">Sold (3-month)</th>
+                <th className="text-right pb-2 px-3">Avg / month</th>
+                <th className="text-right pb-2 px-3">Avg / day</th>
+                <th className="text-right pb-2 px-3">Cover</th>
+                <th className="text-right pb-2 px-3">Trend (30d)</th>
+                <th className="text-right pb-2 px-3">Order to cover 30d</th>
+                <th className="text-left pb-2 pl-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shownDemandRows.length === 0 && (
+                <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No products match this filter</td></tr>
+              )}
+              {shownDemandRows.map(r => (
+                <tr key={r.id} className="border-b border-border/50 last:border-0">
+                  <td className="py-3 pr-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className={cn("w-5 h-5 shrink-0 rounded text-[10px] font-bold flex items-center justify-center",
+                        r.abc === "A" ? "bg-green-500/15 text-green-500" : r.abc === "B" ? "bg-yellow-500/15 text-yellow-500" : "bg-muted text-muted-foreground")}>
+                        {r.abc}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate max-w-[220px]">{r.name}</p>
+                        <p className="text-xs text-muted-foreground capitalize truncate max-w-[220px]">{categoryStrainLabel(r) || "—"}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 text-right font-semibold">{fmtNum(r.stockQty)}</td>
+                  <td className="py-3 px-3 text-right">{fmtNum(r.sold3m)}</td>
+                  <td className="py-3 px-3 text-right">{r.avgMonth.toFixed(1)}</td>
+                  <td className="py-3 px-3 text-right text-muted-foreground">{r.avgDay.toFixed(2)}</td>
+                  <td className="py-3 px-3 text-right">{r.status === "out" ? "0d" : r.cover != null ? Math.round(r.cover).toLocaleString("en-ZA") + "d" : "—"}</td>
+                  <td className="py-3 px-3 text-right">
+                    {r.trend == null ? "—" : (
+                      <span className={cn("text-xs font-medium", r.trend >= 0 ? "text-green-500" : "text-red-500")}>
+                        {r.trend >= 0 ? "↑" : "↓"} {Math.abs(Math.round(r.trend))}%
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-right">{r.orderQty > 0 ? fmtNum(r.orderQty) : "—"}</td>
+                  <td className="py-3 pl-3">
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap", STATUS_META[r.status].cls)}>
+                      {STATUS_META[r.status].label}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {visibleDemandRows.length > 50 && (
+          <button onClick={function () { setShowAllRows(!showAllRows); }}
+            className="mt-3 w-full py-2 rounded-lg bg-muted text-xs font-medium hover:bg-muted/80 transition-colors">
+            {showAllRows ? "Show top 50" : "Show all " + visibleDemandRows.length + " products"}
+          </button>
+        )}
+      </div>
+
       {/* Sales by Strain Type */}
       {strainPerformance.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-5">
@@ -369,19 +576,46 @@ export default function InventoryAnalytics() {
         </div>
       )}
 
-      {/* 30-Day Demand Forecast Chart */}
+      {/* 30 / 60 / 90-Day Demand Forecast Chart */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <Zap className="w-5 h-5 text-yellow-500" />
-          <h2 className="font-semibold">30-Day Demand Forecast</h2>
-          <span className="text-xs text-muted-foreground ml-1">(linear regression — growth-adjusted)</span>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
+          <div className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-yellow-500" />
+            <h2 className="font-semibold">{horizon}-Day Demand Forecast</h2>
+            <span className="text-xs text-muted-foreground ml-1">(linear regression — growth-adjusted)</span>
+          </div>
+          <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40">
+            {[30, 60, 90].map(function (d) {
+              return (
+                <button key={d} onClick={function () { setHorizon(d); }}
+                  className={cn("px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                    horizon === d ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+                  {d} days
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground mb-4">Projected units to sell per day for top 5 products. Reorder quantities below are adjusted for trend.</p>
+        <p className="text-xs text-muted-foreground mb-4">Projected units to sell per day for top 5 products over the next {horizon} days. Reorder quantities below are adjusted for trend.</p>
+        {forecastChartData.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {[30, 60, 90].map(function (d) {
+              var key = d === 30 ? "projected30" : d === 60 ? "projected60" : "projected90";
+              var total = enriched.reduce(function (sum, p) { return sum + (p[key] || 0); }, 0);
+              return (
+                <div key={d} className={cn("rounded-lg border px-3 py-2", horizon === d ? "border-primary/50 bg-primary/5" : "border-border")}>
+                  <p className="text-[11px] text-muted-foreground">Next {d} days</p>
+                  <p className="text-lg font-bold">{fmtNum(total)} <span className="text-xs font-normal text-muted-foreground">units</span></p>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {forecastChartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={forecastChartData}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} interval={4} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} interval={horizon === 30 ? 4 : horizon === 60 ? 8 : 12} />
               <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
