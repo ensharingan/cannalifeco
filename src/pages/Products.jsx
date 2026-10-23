@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, Fragment } from "react";
 import { supabase } from "@/api/supabaseClient";
 import {
   Plus, Search, Edit, Trash2, AlertTriangle, Clock, Tag, Package, Link2, Store, X, Scale, Truck, Printer, Upload,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, ImagePlus, Loader2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -342,6 +342,27 @@ function AddSupplierDialog({ open, onOpenChange, companyId, onSupplierAdded }) {
   );
 }
 
+/* ─── Product image helpers ───────────────────────────────────── */
+
+// Shrinks a photo to max 900px JPEG before upload so phone pictures stay light.
+function resizeImage(file, maxSize) {
+  return new Promise(function (resolve) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      var scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      var canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function (blob) { resolve(blob || file); }, "image/jpeg", 0.85);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 /* ─── Product Form ─────────────────────────────────────────────── */
 
 function ProductForm({
@@ -367,6 +388,7 @@ function ProductForm({
     category: product?.category || (categories[0] || "flower"),
     sku: product?.sku || "",
     barcode: product?.barcode || "",
+    image_url: product?.image_url || "",
     /* Group figures — these move every branch. */
     price: product?._base_price != null ? product._base_price : (product?.price || 0),
     cost_price: product?._base_cost != null ? product._base_cost : (product?.cost_price || 0),
@@ -401,6 +423,29 @@ function ProductForm({
   const [newType, setNewType] = useState("");
 
   const update = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const { companyId: formCompanyId } = useCompany();
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const handleImagePick = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Choose an image file"); return; }
+    if (file.size > 15 * 1024 * 1024) { toast.error("Image must be under 15MB"); return; }
+    setUploadingImage(true);
+    try {
+      const blob = await resizeImage(file, 900);
+      const path = "products/" + (formCompanyId || "company") + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ".jpg";
+      const up = await supabase.storage.from("uploads").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (up.error) throw up.error;
+      const pub = supabase.storage.from("uploads").getPublicUrl(path);
+      update("image_url", pub.data.publicUrl);
+      toast.success("Image uploaded — save the product to keep it");
+    } catch (err) {
+      toast.error(err.message || "Image upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const isFlowerCategory = ["flower"].includes(form.category);
 
@@ -470,6 +515,28 @@ function ProductForm({
       <div>
         <Label>Product Name *</Label>
         <Input value={form.name} onChange={e => update("name", e.target.value)} placeholder="e.g. OG Kush" />
+      </div>
+
+      {/* Product image */}
+      <div>
+        <Label>Product Image</Label>
+        <div className="flex items-center gap-3 mt-1">
+          <div className="w-20 h-20 rounded-lg border bg-muted/30 overflow-hidden flex items-center justify-center shrink-0">
+            {form.image_url
+              ? <img src={form.image_url} alt="" className="w-full h-full object-cover" />
+              : <ImagePlus className="w-6 h-6 text-muted-foreground" />}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className={"inline-flex items-center gap-2 h-9 px-3 rounded-md border text-sm cursor-pointer hover:bg-muted/50 " + (uploadingImage ? "opacity-60 pointer-events-none" : "")}>
+              {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {form.image_url ? "Replace image" : "Upload image"}
+              <input type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
+            </label>
+            {form.image_url && (
+              <button type="button" className="text-xs text-muted-foreground hover:text-red-500 text-left" onClick={() => update("image_url", "")}>Remove image</button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -1110,6 +1177,7 @@ export default function Products() {
         bundle_grams: data.is_bundle ? data.bundle_grams : null,
         price_tiers: cleanTiers, company_id: companyId,
         supplier_id: data.supplier_id || null,
+        image_url: data.image_url || null,
       };
       // Only set barcode if the user typed one — otherwise omit it so the
       // database auto-generates a unique code via its column default.
@@ -1175,6 +1243,7 @@ export default function Products() {
         bundle_grams: data.is_bundle ? data.bundle_grams : null,
         price_tiers: cleanTiers,
         supplier_id: data.supplier_id || null,
+        image_url: data.image_url || null,
       };
       // Update barcode only when a value is present, so an empty field
       // doesn't wipe the existing auto-generated code.
@@ -1509,7 +1578,10 @@ export default function Products() {
                   <Fragment key={p.id}>
                   <tr className="hover:bg-muted/30 transition-colors">
                     <td className="p-3">
-                      <div className="font-medium">{p.name}</div>
+                      <div className="flex items-center gap-2">
+                        {p.image_url && <img src={p.image_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" loading="lazy" />}
+                        <div className="font-medium">{p.name}</div>
+                      </div>
                       <div className="text-xs text-muted-foreground md:hidden">
                         {(p.category || "").replace(/_/g, " ")} · {p.product_type || "—"}{strainLabel ? " · " + strainLabel : ""}
                       </div>
