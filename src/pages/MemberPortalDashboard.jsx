@@ -1281,7 +1281,7 @@ export default function MemberPortalDashboard() {
           <div className="mp-narrow">
             <div style={{ marginBottom: "14px" }}>
               <h3 style={{ fontSize: "15px", fontWeight: "600", margin: 0 }}>Compliance</h3>
-              <p style={{ fontSize: "11px", color: "#6b7280", margin: "2px 0 0" }}>FICA verification and Section 21 documents, on file with {companyName}</p>
+              <p style={{ fontSize: "11px", color: "#6b7280", margin: "2px 0 0" }}>FICA verification documents, on file with {companyName}</p>
             </div>
 
             {loadingCompliance ? (
@@ -1322,42 +1322,6 @@ export default function MemberPortalDashboard() {
                   </div>
                   <input ref={ficaIdRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={handleFicaIdFile} />
                   <input ref={ficaPoaRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={handleFicaPoaFile} />
-                </div>
-
-                {/* Section 21 */}
-                <div style={s.card}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <h4 style={{ fontSize: "14px", fontWeight: "700", margin: 0 }}>Section 21 Application</h4>
-                    <span style={s.statusPill(section21StatusMeta)}>{section21StatusMeta.label}</span>
-                  </div>
-                  <p style={s.complianceNote}>
-                    Access to unregistered cannabis medicine under Section 21 of the Medicines and Related Substances
-                    Act requires a doctor-supported application. Upload your prescription or application document
-                    here — the full clinical intake is completed with {companyName}'s staff.
-                  </p>
-
-                  {section21App && section21App.notes && (section21App.application_status || "").toLowerCase() === "rejected" && (
-                    <div style={{ marginTop: "10px", padding: "10px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "8px", fontSize: "12px", color: "#f87171" }}>
-                      {section21App.notes}
-                    </div>
-                  )}
-
-                  <div style={{ marginTop: "14px" }}>
-                    <div style={s.uploadBox(!!(section21App && section21App.id_upload_url))}
-                      onClick={function () { if (section21Ref.current) section21Ref.current.click(); }}>
-                      <div style={{ fontSize: "22px" }}>{section21App && section21App.id_upload_url ? "✅" : "📄"}</div>
-                      <div style={{ fontSize: "12px", fontWeight: "600", marginTop: "6px" }}>Prescription / Application Document</div>
-                      <div style={{ fontSize: "10px", color: "#6b7280", marginTop: "2px" }}>
-                        {uploadingSection21 ? "Uploading..." : (section21App && section21App.id_upload_url) ? "Uploaded — tap to replace" : "Tap to upload"}
-                      </div>
-                    </div>
-                  </div>
-                  {section21App && section21App.submission_timestamp && (
-                    <div style={{ fontSize: "10px", color: "#6b7280", marginTop: "8px" }}>
-                      Submitted {formatDate(section21App.submission_timestamp)}
-                    </div>
-                  )}
-                  <input ref={section21Ref} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={handleSection21File} />
                 </div>
               </>
             )}

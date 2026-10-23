@@ -37,8 +37,6 @@ import CashierSessions from './pages/CashierSessions';
 import Reports from './pages/Reports';
 import EndOfDay from './pages/EndOfDay';
 import Cashiers from './pages/Cashiers';
-import PatientIntakeForm from './pages/PatientIntakeForm';
-import PatientsDashboard from './pages/PatientsDashboard';
 import SuperAdminCompliance from './pages/SuperAdminCompliance';
 import Marketing from './pages/Marketing';
 import InventoryAnalytics from './pages/InventoryAnalytics';
@@ -77,20 +75,6 @@ const CashierGuard = ({ children }) => {
   const { profile } = useAuth();
   if (!profile) return null;
   if (profile.role === 'cashier') return <Navigate to="/pos" replace />;
-  return children;
-};
-
-// Blocks the Section 21 / Patients pages when the company has
-// pos_settings.hide_patients set, so the URL can't be hit directly
-// after the nav item is hidden.
-const PatientsGuard = ({ children }) => {
-  const { settings, isLoading } = usePosSettings();
-  const { profile } = useAuth();
-  if (isLoading) return null;
-  if (settings.hide_patients) return <Navigate to="/" replace />;
-  if (settings.cashier_hide_patients && profile?.role === 'cashier') {
-    return <Navigate to="/pos" replace />;
-  }
   return children;
 };
 
@@ -186,8 +170,6 @@ const AuthenticatedApp = () => {
         <Route path="/vat-report" element={<VatReport />} />
         <Route path="/cashiers" element={<Cashiers />} />
         <Route path="/till-cash-outs" element={<TillCashOuts />} />
-        <Route path="/patient-intake" element={<PatientsGuard><PatientIntakeForm /></PatientsGuard>} />
-        <Route path="/patients-dashboard" element={<PatientsGuard><PatientsDashboard /></PatientsGuard>} />
         <Route path="/admin-compliance" element={<SuperAdminCompliance />} />
         <Route path="/marketing" element={<Marketing />} />
         <Route path="/inventory-analytics" element={<InventoryAnalytics />} />

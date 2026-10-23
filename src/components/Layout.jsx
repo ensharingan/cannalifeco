@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ShoppingCart, Users, Package, Warehouse,
   Receipt, DollarSign, Settings, Menu, ChevronDown,
   LogOut, User, Store, Star, RotateCcw, Tag, Clock, BarChart2,
-  ClipboardList, FileText, Megaphone, TrendingUp, UserCircle,
+  Megaphone, TrendingUp, UserCircle,
   LifeBuoy, PackageSearch, ClipboardCheck, Sunset,
   ReceiptText, Building2
 } from "lucide-react";
@@ -28,11 +28,6 @@ const ROLE_ACCESS = {
   superadmin: ['cashier', 'staff', 'manager', 'owner', 'superadmin'],
 };
 
-// Section 21 / patient pages. Hidden as a pair when a company has
-// pos_settings.hide_patients set, or from cashiers only when
-// pos_settings.cashier_hide_patients is set.
-const PATIENT_PATHS = ['/patients-dashboard', '/patient-intake'];
-
 // requiresVat: only shown once the company has a SARS VAT number on file.
 // A club that isn't VAT-registered has nothing to file, and the page itself
 // only renders a "add your VAT number in Settings" notice — so a permanent
@@ -50,8 +45,6 @@ const allNavItems = [
   { group: 'main',   path: "/pos",                 label: "POS",                 icon: ShoppingCart,    minRole: 'cashier' },
   { group: 'main',   path: "/orders",              label: "Sales",               icon: Receipt,         minRole: 'cashier' },
   { group: 'main',   path: "/members",             label: "Members",             icon: Users,           minRole: 'cashier' },
-  { group: 'main',   path: "/patients-dashboard",  label: "Patients (S21)",      icon: ClipboardList,   minRole: 'cashier', sub: true },
-  { group: 'main',   path: "/patient-intake",      label: "New Intake Form",     icon: FileText,        minRole: 'cashier', sub: true },
 
   { group: 'stock',  path: "/products",            label: "Products",            icon: Package,         minRole: 'manager' },
   { group: 'stock',  path: "/inventory",           label: "Inventory",           icon: Warehouse,       minRole: 'manager' },
@@ -134,9 +127,6 @@ export default function Layout() {
   const role = profile?.role || 'cashier';
   const accessibleRoles = ROLE_ACCESS[role] || ['cashier'];
 
-  var hidePatients = settings.hide_patients === true
-    || (settings.cashier_hide_patients === true && role === 'cashier');
-
   // company comes back from CompanyContext with select('*'), so vat_number is
   // on it. It is null on the very first render before the context resolves —
   // the item simply appears once the company loads.
@@ -144,7 +134,6 @@ export default function Layout() {
 
   const navItems = allNavItems.filter(function (item) {
     if (!accessibleRoles.includes(item.minRole)) return false;
-    if (hidePatients && PATIENT_PATHS.includes(item.path)) return false;
     if (item.requiresVat && !hasVat) return false;
     return true;
   });
