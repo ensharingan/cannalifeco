@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { PlayCircle, StopCircle, AlertTriangle, Store, CheckCircle2, TrendingUp, TrendingDown, Receipt } from "lucide-react";
 import { formatCurrency } from "../../lib/currency";
+import ZReportModal from "./ZReportModal";
 
 // A warehouse has no till and no walk-in trade, so a cash float can't be
 // counted against it. It stays out of the session picker for every role —
@@ -40,6 +41,8 @@ export default function CashierSessionBar({ onSessionChange }) {
   // The count stays blind, but the result no longer disappears into the
   // database unseen — this holds the reconciliation to show back afterwards.
   const [closeResult, setCloseResult] = useState(null);
+  const [zReport, setZReport] = useState(null); // { id, final }
+  const [lastClosedId, setLastClosedId] = useState(null);
 
   const loadSession = useCallback(async () => {
     if (!companyId) return;
@@ -179,6 +182,7 @@ export default function CashierSessionBar({ onSessionChange }) {
       const actual = parseFloat(closingFloat);
       const cardTotal = closingCard !== "" ? parseFloat(closingCard) : null;
       const sessionId = session.id;
+      setLastClosedId(sessionId);
 
       const { error } = await supabase
         .from("cashier_sessions")
@@ -286,7 +290,11 @@ export default function CashierSessionBar({ onSessionChange }) {
             <span className="text-xs text-muted-foreground">
               · Float: {formatCurrency(session.opening_float || 0)}
             </span>
-            <div className="ml-auto">
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                onClick={() => setZReport({ id: session.id, final: false })}>
+                <Receipt className="w-3.5 h-3.5" /> Day End
+              </Button>
               <Button size="sm" variant="destructive" className="h-7 text-xs gap-1"
                 onClick={() => { setClosingFloat(""); setClosingCard(""); setCloseResult(null); setShowClose(true); }}>
                 <StopCircle className="w-3.5 h-3.5" /> Close Day
@@ -472,11 +480,17 @@ export default function CashierSessionBar({ onSessionChange }) {
                 </div>
               )}
 
+              {lastClosedId && (
+                <Button variant="outline" className="w-full gap-2" onClick={() => setZReport({ id: lastClosedId, final: true })}>
+                  <Receipt className="w-4 h-4" /> Print Z Report
+                </Button>
+              )}
               <Button className="w-full" onClick={dismissClose}>Done</Button>
             </div>
           )}
         </DialogContent>
       </Dialog>
+      <ZReportModal open={!!zReport} sessionId={zReport ? zReport.id : null} final={zReport ? zReport.final : undefined} onClose={() => setZReport(null)} />
     </>
   );
 }

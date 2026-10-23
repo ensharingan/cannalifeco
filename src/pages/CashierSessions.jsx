@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import ZReportModal from "../components/pos/ZReportModal";
 
 // Methods settled through the order_payments ledger rather than on the order
 // row itself. Excluded here so tab money isn't counted twice.
@@ -70,6 +71,7 @@ export default function CashierSessions() {
 
   var [sessions, setSessions] = useState([]);
   var [orderStats, setOrderStats] = useState({});
+  var [zSession, setZSession] = useState(null);
   var [loading, setLoading] = useState(true);
 
   // Visibility is capped at the last 7 days
@@ -457,6 +459,8 @@ export default function CashierSessions() {
                   {!hideSessionTotals && <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Taken</th>}
                   {!isCashier && <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Cash-up</th>}
                   <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Status</th>
+                  <th className="p-3"></th>
+                  <th className="p-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -525,6 +529,11 @@ export default function CashierSessions() {
                             : 'bg-muted text-muted-foreground border-border'
                         )}>{s.status}</span>
                       </td>
+                      <td className="p-3">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={function () { setZSession(s); }}>
+                          {s.status === 'closed' ? 'Z Report' : 'Day End'}
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -543,6 +552,7 @@ export default function CashierSessions() {
           )}
         </div>
       </div>
+      <ZReportModal open={!!zSession} sessionId={zSession ? zSession.id : null} onClose={function () { setZSession(null); }} />
     </div>
   );
 }
