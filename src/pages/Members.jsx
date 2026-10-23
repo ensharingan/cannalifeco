@@ -572,12 +572,16 @@ export default function Members() {
               <QrCode className="w-4 h-4" /> Registration QR
             </Button>
           )}
-          <Button variant="outline" onClick={function () { setShowUpload(true); }} className="gap-2">
-            <Upload className="w-4 h-4" /> Import CSV
-          </Button>
-          <Button onClick={function () { setShowForm(true); }} className="gap-2">
-            <Plus className="w-4 h-4" /> Add Member
-          </Button>
+          {canShowRegQR && (
+            <Button variant="outline" onClick={function () { setShowUpload(true); }} className="gap-2">
+              <Upload className="w-4 h-4" /> Import CSV
+            </Button>
+          )}
+          {canShowRegQR && (
+            <Button onClick={function () { setShowForm(true); }} className="gap-2">
+              <Plus className="w-4 h-4" /> Add Member
+            </Button>
+          )}
         </div>
       </div>
 
