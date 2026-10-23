@@ -157,6 +157,23 @@ export default function Members() {
   var [recoveredDraft, setRecoveredDraft] = useState(null);
   var registrationUrl = window.location.origin + "/#/register?company=" + companyId;
 
+  // Cashiers don't get the self-registration QR next to Add Member. An unknown
+  // role is treated as a cashier, which is the safer side of this fence.
+  var [userRole, setUserRole] = useState(null);
+  useEffect(function () {
+    var cancelled = false;
+    (async function () {
+      try {
+        var res = await supabase.rpc("get_my_profile");
+        if (cancelled || res.error) return;
+        var row = Array.isArray(res.data) ? res.data[0] : res.data;
+        if (row && row.role) setUserRole(row.role);
+      } catch (err) { /* non-fatal */ }
+    })();
+    return function () { cancelled = true; };
+  }, []);
+  var canShowRegQR = ["owner", "admin", "manager", "superadmin"].indexOf(userRole) !== -1;
+
   var [newMemberForm, setNewMemberForm] = useState({ ...EMPTY_FORM });
   var [editMemberForm, setEditMemberForm] = useState({ ...EMPTY_FORM });
 
@@ -550,9 +567,11 @@ export default function Members() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={function () { setShowRegQR(true); }} className="gap-2">
-            <QrCode className="w-4 h-4" /> Registration QR
-          </Button>
+          {canShowRegQR && (
+            <Button variant="outline" onClick={function () { setShowRegQR(true); }} className="gap-2">
+              <QrCode className="w-4 h-4" /> Registration QR
+            </Button>
+          )}
           <Button variant="outline" onClick={function () { setShowUpload(true); }} className="gap-2">
             <Upload className="w-4 h-4" /> Import CSV
           </Button>
