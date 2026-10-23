@@ -411,6 +411,8 @@ export default function POS() {
   }, []);
 
   var canManageCredit = CREDIT_MANAGE_ROLES.indexOf(currentUserRole) !== -1;
+  // Till cash-out is hidden from cashiers; an unknown role counts as a cashier.
+  var canCashOut = ["owner", "admin", "manager", "superadmin"].indexOf(currentUserRole) !== -1;
 
   useEffect(function () {
     if (!storageKey) return;
@@ -1860,13 +1862,15 @@ export default function POS() {
 
               {/* ── TILL CASH-OUT BUTTON ── stays live on a mismatch: closing
                   the day is one of the two ways out of it. */}
-              <div className="shrink-0">
-                <TillCashOut
-                  sessionId={activeSession?.id}
-                  companyId={companyId}
-                  storeId={activeSession?.store_id || effectiveStoreId}
-                />
-              </div>
+              {canCashOut && (
+                <div className="shrink-0">
+                  <TillCashOut
+                    sessionId={activeSession?.id}
+                    companyId={companyId}
+                    storeId={activeSession?.store_id || effectiveStoreId}
+                  />
+                </div>
+              )}
 
               <Button variant={selectedMember && !selectedMember.is_walkin ? "default" : "outline"}
                 onClick={function () { setShowCustomerGate(true); setMemberSearch(""); }}
