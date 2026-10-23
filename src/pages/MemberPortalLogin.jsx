@@ -90,12 +90,12 @@ export default function MemberPortalLogin() {
     return (
       <div style={{
         minHeight: "100vh",
-        background: "linear-gradient(145deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%)",
+        background: "#f3f5f3",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         fontFamily: "'Outfit', sans-serif",
-        color: "#fff",
+        color: "#111827",
         padding: "20px",
       }}>
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -113,7 +113,7 @@ export default function MemberPortalLogin() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "linear-gradient(145deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%)",
+      background: "#f3f5f3",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -154,7 +154,7 @@ export default function MemberPortalLogin() {
             </div>
           )}
           <h1 style={{
-            color: "#fff",
+            color: "#111827",
             fontSize: "24px",
             fontWeight: "700",
             margin: "0 0 4px",
@@ -162,15 +162,15 @@ export default function MemberPortalLogin() {
           }}>
             {companyName}
           </h1>
-          <p style={{ color: "#9ca3af", fontSize: "14px", margin: "0" }}>
+          <p style={{ color: "#6b7280", fontSize: "14px", margin: "0" }}>
             Member Portal — Log in to view your membership
           </p>
         </div>
 
         {/* Login Card */}
         <div style={{
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          background: "#ffffff",
+          border: "1px solid rgba(0,0,0,0.14)",
           borderRadius: "16px",
           padding: "32px 28px",
           backdropFilter: "blur(20px)",
@@ -179,7 +179,7 @@ export default function MemberPortalLogin() {
             <div style={{ marginBottom: "20px" }}>
               <label style={{
                 display: "block",
-                color: "#d1d5db",
+                color: "#374151",
                 fontSize: "13px",
                 fontWeight: "500",
                 marginBottom: "6px",
@@ -199,10 +199,10 @@ export default function MemberPortalLogin() {
                 style={{
                   width: "100%",
                   padding: "12px 16px",
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(0,0,0,0.04)",
+                  border: "1px solid rgba(0,0,0,0.14)",
                   borderRadius: "10px",
-                  color: "#fff",
+                  color: "#111827",
                   fontSize: "16px",
                   outline: "none",
                   fontFamily: "'Outfit', sans-serif",
@@ -210,7 +210,7 @@ export default function MemberPortalLogin() {
                   boxSizing: "border-box",
                 }}
                 onFocus={function (e) { e.target.style.borderColor = "#22c55e"; }}
-                onBlur={function (e) { e.target.style.borderColor = "rgba(255,255,255,0.1)"; }}
+                onBlur={function (e) { e.target.style.borderColor = "rgba(0,0,0,0.14)"; }}
               />
               <p style={{
                 color: "#6b7280",
@@ -225,7 +225,7 @@ export default function MemberPortalLogin() {
             <div style={{ marginBottom: "28px" }}>
               <label style={{
                 display: "block",
-                color: "#d1d5db",
+                color: "#374151",
                 fontSize: "13px",
                 fontWeight: "500",
                 marginBottom: "6px",
@@ -242,17 +242,17 @@ export default function MemberPortalLogin() {
                 style={{
                   width: "100%",
                   padding: "12px 16px",
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(0,0,0,0.04)",
+                  border: "1px solid rgba(0,0,0,0.14)",
                   borderRadius: "10px",
-                  color: "#fff",
+                  color: "#111827",
                   fontSize: "16px",
                   outline: "none",
                   fontFamily: "'Outfit', sans-serif",
                   boxSizing: "border-box",
                 }}
                 onFocus={function (e) { e.target.style.borderColor = "#22c55e"; }}
-                onBlur={function (e) { e.target.style.borderColor = "rgba(255,255,255,0.1)"; }}
+                onBlur={function (e) { e.target.style.borderColor = "rgba(0,0,0,0.14)"; }}
               />
             </div>
 
