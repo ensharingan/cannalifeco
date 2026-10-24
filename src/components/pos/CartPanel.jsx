@@ -357,6 +357,7 @@ export default function CartPanel({
   appliedCredit,
   storeSettings,
   promotions,
+  promoStoreId,
   selectedPromo,
   voucherMode,
   creditUnit,
@@ -581,6 +582,7 @@ export default function CartPanel({
         p_code: code,
         p_subtotal: subtotal,
         p_member_id: !isWalkIn && selectedMember ? selectedMember.id : null,
+        p_store_id: promoStoreId || null,
       });
 
       if (res.error) { toast.error(res.error.message || "That code could not be applied"); return; }

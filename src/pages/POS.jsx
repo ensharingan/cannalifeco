@@ -347,9 +347,6 @@ export default function POS() {
 
   // Everything that applies by itself. Coded promos are stripped out here once,
   // so the banner, the pills and the cart all work off the same list.
-  var autoPromotions = useMemo(function () {
-    return (promotions || []).filter(function (p) { return !isCodedPromo(p); });
-  }, [promotions]);
 
   // ── Store scoping ────────────────────────────────────────────────────
   // The open cashier session owns the store. The sidebar selector is a
@@ -358,6 +355,15 @@ export default function POS() {
   // stock off, whichever store happened to be selected in the sidebar.
   var sessionStoreId = activeSession && activeSession.store_id ? activeSession.store_id : null;
   var effectiveStoreId = sessionStoreId || activeStoreId || (ctxStores && ctxStores.length > 0 ? ctxStores[0].id : null);
+
+  // A promotion with a store set only runs at that store; no store means every
+  // store. Scoped by the till's store, same as stock.
+  var storePromotions = useMemo(function () {
+    return (promotions || []).filter(function (p) { return !p.store_id || !effectiveStoreId || p.store_id === effectiveStoreId; });
+  }, [promotions, effectiveStoreId]);
+  var autoPromotions = useMemo(function () {
+    return storePromotions.filter(function (p) { return !isCodedPromo(p); });
+  }, [storePromotions]);
 
   // When these disagree the cashier is looking at one branch's name and
   // trading on another's stock. That used to be a thin advisory strip, and a
@@ -952,8 +958,8 @@ export default function POS() {
     if (!product) return [];
     var out = [];
     var now = new Date();
-    for (var i = 0; i < (promotions || []).length; i++) {
-      var p = promotions[i];
+    for (var i = 0; i < (storePromotions || []).length; i++) {
+      var p = storePromotions[i];
       if (p.promo_type !== "weight_special") continue;
       if (!promoWindowActive(p, now)) continue;
       var targetTier = (p.target_tier || "all").toLowerCase();
@@ -970,7 +976,7 @@ export default function POS() {
     }
     out.sort(function (a, b) { return a.grams - b.grams; });
     return out;
-  }, [promotions, memberTierKey]);
+  }, [storePromotions, memberTierKey]);
 
   // NOTE ON WEIGHT TIERS: both products.price_tiers and promotion weight_tiers
   // hold flat rand amounts ("5g for R400"), not multiples of the unit price, so
@@ -1671,7 +1677,7 @@ export default function POS() {
     onCheckout: function (checkoutData) { handleCheckout(checkoutData); setShowCart(false); },
     isProcessing, onAddChangeToCredit: handleAddChangeToCredit,
     onApplyCredit: handleApplyCredit, appliedCredit, storeSettings,
-    promotions: autoPromotions, selectedPromo, allowNegative,
+    promotions: autoPromotions, promoStoreId: effectiveStoreId, selectedPromo, allowNegative,
     voucherMode: voucherMode, creditUnit: creditUnit, creditRate: creditRate,
   };
 

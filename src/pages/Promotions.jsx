@@ -54,7 +54,7 @@ const empty = {
   discount_value: 0, buy_quantity: 1, get_quantity: 1,
   free_product_id: "", free_product_name: "",
   start_date: "", end_date: "", is_active: true, max_uses: 0,
-  applicable_products: [], target_tier: "all",
+  applicable_products: [], target_tier: "all", store_id: "",
   weight_tiers: [],
   code: "", max_uses_per_member: 0,
 };
@@ -84,7 +84,7 @@ function parseApplicable(raw) {
 }
 
 export default function Promotions() {
-  const { companyId } = useCompany();
+  const { companyId, stores } = useCompany();
   const [promos, setPromos] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -121,6 +121,7 @@ export default function Promotions() {
       applicable_products: parseApplicable(p.applicable_products),
       weight_tiers: parseWeightTiers(p.weight_tiers),
       target_tier: p.target_tier || "all",
+      store_id: p.store_id || "",
       start_date: p.start_date || "",
       end_date: p.end_date || "",
       code: p.code || "",
@@ -204,6 +205,7 @@ export default function Promotions() {
         max_uses: Number(form.max_uses) || 0,
         applicable_products: JSON.stringify(form.applicable_products || []),
         target_tier: form.target_tier || "all",
+        store_id: form.store_id || null,
         weight_tiers: form.promo_type === "weight_special" ? cleanTiers : [],
         code: cleanCode || null,
         max_uses_per_member: codeable ? (Number(form.max_uses_per_member) || 0) : 0,
@@ -369,6 +371,11 @@ export default function Promotions() {
                 </div>
               )}
 
+              {/* Store badge */}
+              <span className="inline-block text-xs px-2 py-1 rounded-full font-medium bg-muted text-muted-foreground mr-1">
+                🏪 {p.store_id ? ((stores || []).find(st => st.id === p.store_id)?.name || "One store") : "All stores"}
+              </span>
+
               {/* Tier badge */}
               <span className={cn("inline-block text-xs px-2 py-1 rounded-full font-medium", TIER_COLORS[p.target_tier || "all"])}>
                 {tierLabel}
@@ -414,6 +421,19 @@ export default function Promotions() {
             <div>
               <Label>Description</Label>
               <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Short description..." />
+            </div>
+
+            {/* Store */}
+            <div>
+              <Label>Store</Label>
+              <Select value={form.store_id || "__all__"} onValueChange={v => setForm(f => ({ ...f, store_id: v === "__all__" ? "" : v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All stores</SelectItem>
+                  {(stores || []).map(st => <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Run this promotion at one store only, or leave on All stores</p>
             </div>
 
             {/* Membership Tier */}
