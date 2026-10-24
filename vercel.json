@@ -1,5 +1,10 @@
 {
   "routes": [
+    {
+      "src": "/join",
+      "status": 302,
+      "headers": { "Location": "/#/register?company=c9d7fd08-ab38-48eb-9267-8317063ec6b0" }
+    },
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
     { "src": "/manifest.json", "dest": "/manifest.json" },
     { "src": "/sw.js", "dest": "/sw.js" },
