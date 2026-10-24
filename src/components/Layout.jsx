@@ -132,8 +132,12 @@ export default function Layout() {
   // the item simply appears once the company loads.
   var hasVat = !!(company && company.vat_number && String(company.vat_number).trim() !== "");
 
+  // Per-user extra pages (profiles.extra_pages) unlock individual nav items
+  // above the user's role, e.g. a cashier who also gets Promotions + Marketing.
+  const extraPages = Array.isArray(profile?.extra_pages) ? profile.extra_pages : [];
+
   const navItems = allNavItems.filter(function (item) {
-    if (!accessibleRoles.includes(item.minRole)) return false;
+    if (!accessibleRoles.includes(item.minRole) && !extraPages.includes(item.path)) return false;
     if (item.requiresVat && !hasVat) return false;
     return true;
   });
