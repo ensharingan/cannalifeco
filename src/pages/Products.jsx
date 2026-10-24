@@ -434,10 +434,10 @@ function ProductForm({
     setUploadingImage(true);
     try {
       const blob = await resizeImage(file, 900);
-      const path = "products/" + (formCompanyId || "company") + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ".jpg";
-      const up = await supabase.storage.from("uploads").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      const path = (formCompanyId || "company") + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ".jpg";
+      const up = await supabase.storage.from("product-images").upload(path, blob, { contentType: "image/jpeg", upsert: false });
       if (up.error) throw up.error;
-      const pub = supabase.storage.from("uploads").getPublicUrl(path);
+      const pub = supabase.storage.from("product-images").getPublicUrl(path);
       update("image_url", pub.data.publicUrl);
       toast.success("Image uploaded — save the product to keep it");
     } catch (err) {
