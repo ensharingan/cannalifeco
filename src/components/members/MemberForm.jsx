@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Camera, Upload, X, User, RefreshCw, ShieldCheck, ShieldX, ShieldAlert, FileText, ChevronDown, ChevronUp, ExternalLink, FileSignature, Eraser, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useCompany } from "../../lib/CompanyContext";
 
 var EMPTY_FORM = {
   first_name: "",
@@ -21,6 +22,7 @@ var EMPTY_FORM = {
   nationality: "South African",
   address: "",
   membership_type: "bronze",
+  home_store_id: "",
   group_affiliation: "",
   notes: "",
   profile_image: "",
@@ -47,6 +49,7 @@ function initForm(member) {
     nationality: member.nationality || "South African",
     address: member.address || "",
     membership_type: member.membership_type || "bronze",
+    home_store_id: member.home_store_id || "",
     group_affiliation: member.group_affiliation || "",
     notes: member.notes || "",
     profile_image: member.profile_image || "",
@@ -68,6 +71,9 @@ var FICA_STATUS_CONFIG = {
 
 export default function MemberForm({ form, setForm, onSave, onCancel, member, isSaving, companyId }) {
   var formData = form || (member ? initForm(member) : { ...EMPTY_FORM });
+  var companyCtx = useCompany() || {};
+  var homeStores = companyCtx.stores || [];
+  var defaultStoreId = companyCtx.activeStoreId || "";
   var [showCamera, setShowCamera] = useState(false);
   var [cameraReady, setCameraReady] = useState(false);
   var [photoPreview, setPhotoPreview] = useState(formData.profile_image || "");
@@ -132,6 +138,13 @@ export default function MemberForm({ form, setForm, onSave, onCancel, member, is
       setForm(function (prev) { return { ...prev, [field]: value }; });
     }
   };
+
+  // New members default to the store currently selected; staff can change it.
+  useEffect(function () {
+    if (!member && defaultStoreId && !formData.home_store_id && setForm) {
+      setForm(function (prev) { return prev.home_store_id ? prev : { ...prev, home_store_id: defaultStoreId }; });
+    }
+  }, [member, defaultStoreId, formData.home_store_id]);
 
   var validateSAID = function (id) {
     if (!/^\d{13}$/.test(id)) return false;
@@ -642,6 +655,20 @@ export default function MemberForm({ form, setForm, onSave, onCancel, member, is
         <Label>Address</Label>
         <Input value={formData.address} onChange={function (e) { update("address", e.target.value); }} placeholder="Optional" />
       </div>
+
+      {/* Home club */}
+      {homeStores.length > 0 && (
+        <div>
+          <Label>Home Club</Label>
+          <Select value={formData.home_store_id || "__none__"} onValueChange={function (v) { update("home_store_id", v === "__none__" ? "" : v); }}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Not set</SelectItem>
+              {homeStores.map(function (st) { return <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>; })}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Group Affiliation */}
       <div>

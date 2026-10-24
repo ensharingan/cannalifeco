@@ -61,10 +61,24 @@ export default function MemberRegister() {
     phone: "",
     address: "",
     membership_type: "bronze",
+    home_store_id: params.get("store") || "",
     agreed_tos: false,
   });
 
   const [errors, setErrors] = useState({});
+  const [stores, setStores] = useState([]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    supabase.rpc("public_company_stores", { p_company_id: companyId }).then(({ data }) => {
+      const list = data || [];
+      setStores(list);
+      setForm((f) => {
+        if (f.home_store_id && list.some((s) => s.id === f.home_store_id)) return f;
+        return { ...f, home_store_id: list.length === 1 ? list[0].id : "" };
+      });
+    });
+  }, [companyId]);
 
   useEffect(() => {
     if (!companyId) {
@@ -139,6 +153,7 @@ export default function MemberRegister() {
         p_nationality: form.nationality.trim() || null,
         p_address: form.address.trim() || null,
         p_membership_type: form.membership_type || "bronze",
+        p_home_store_id: form.home_store_id || null,
       };
       const { error: rpcErr } = await supabase.rpc("register_member", payload);
       if (rpcErr) {
@@ -369,6 +384,19 @@ export default function MemberRegister() {
                   className="mt-1 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 resize-none"
                 />
               </div>
+              {stores.length > 1 && (
+                <div>
+                  <Label className="text-gray-700 text-xs">Home Club</Label>
+                  <select
+                    value={form.home_store_id}
+                    onChange={(e) => set("home_store_id")(e.target.value)}
+                    className="mt-1 w-full h-10 rounded-md border border-gray-300 bg-white text-gray-900 text-sm px-3"
+                  >
+                    <option value="">Select your home club</option>
+                    {stores.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <Label className="text-gray-700 text-xs">Membership Type</Label>
                 <div className="grid grid-cols-2 gap-2 mt-1">
@@ -408,6 +436,7 @@ export default function MemberRegister() {
                 <Row label="Phone" value={form.phone || "—"} />
                 {form.email && <Row label="Email" value={form.email} />}
                 {form.address && <Row label="Address" value={form.address} />}
+                {form.home_store_id && <Row label="Home Club" value={stores.find((st) => st.id === form.home_store_id)?.name || ""} />}
                 <Row label="Type" value={MEMBERSHIP_TYPES.find((t) => t.value === form.membership_type)?.label || form.membership_type} />
               </div>
               <label className="flex items-start gap-3 cursor-pointer group">
