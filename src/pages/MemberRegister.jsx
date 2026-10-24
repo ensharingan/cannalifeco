@@ -25,10 +25,10 @@ import {
 const STEP_LABELS = ["Personal Info", "Contact Details", "Confirm"];
 
 const MEMBERSHIP_TYPES = [
-  { value: "bronze", label: "Bronze", color: "text-amber-600", activeBg: "bg-amber-600/20 border-amber-500/40 text-amber-500" },
-  { value: "silver", label: "Silver", color: "text-gray-600", activeBg: "bg-gray-400/20 border-gray-400/40 text-gray-700" },
-  { value: "gold", label: "Gold", color: "text-yellow-400", activeBg: "bg-yellow-500/20 border-yellow-400/40 text-yellow-400" },
-  { value: "platinum", label: "Platinum", color: "text-purple-400", activeBg: "bg-purple-500/20 border-purple-400/40 text-purple-400" },
+  { value: "bronze", label: "Bronze", color: "text-amber-700", activeBg: "bg-amber-100 border-amber-500 text-amber-800" },
+  { value: "silver", label: "Silver", color: "text-gray-600", activeBg: "bg-gray-100 border-gray-400 text-gray-800" },
+  { value: "gold", label: "Gold", color: "text-yellow-700", activeBg: "bg-yellow-100 border-yellow-500 text-yellow-800" },
+  { value: "platinum", label: "Platinum", color: "text-purple-700", activeBg: "bg-purple-100 border-purple-500 text-purple-800" },
 ];
 
 function generateMembershipId() {
