@@ -358,7 +358,7 @@ export default function StockValueReport() {
     return (
       <th
         onClick={function () { toggleInvSort(props.field); }}
-        style={{ padding: "12px 16px", textAlign: props.align || "left", color: active ? "#4ade80" : "#4b5563", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.06em", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+        style={{ padding: "12px 16px", textAlign: props.align || "left", color: active ? "#34ad79" : "#4b5563", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.06em", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
       >
         {props.label}{active ? (invSort.dir === "asc" ? " ↑" : " ↓") : ""}
       </th>
@@ -370,7 +370,7 @@ export default function StockValueReport() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "28px" }}>
         <div>
-          <div style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.12em", color: "#4ade80", textTransform: "uppercase", marginBottom: "6px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.12em", color: "#34ad79", textTransform: "uppercase", marginBottom: "6px" }}>
             Inventory Intelligence
           </div>
           <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#ffffff", margin: 0, lineHeight: 1.2 }}>
@@ -411,7 +411,7 @@ export default function StockValueReport() {
           label="Stock at Cost"
           value={formatRand(totalCurrentCost)}
           sub="Current inventory cost value"
-          color="#4ade80"
+          color="#34ad79"
         />
         <SummaryCard
           label="Stock at Retail"
@@ -472,7 +472,7 @@ export default function StockValueReport() {
                       style={{
                         padding: "6px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
                         border: active ? "none" : "1px solid #2a2d3a",
-                        background: active ? "#4ade80" : "transparent",
+                        background: active ? "#34ad79" : "transparent",
                         color: active ? "#0f1117" : "#9ca3af",
                       }}>
                       {p.label}
@@ -505,8 +505,8 @@ export default function StockValueReport() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px", marginBottom: "20px" }}>
             <SummaryCard label="SKUs Reported" value={invRows.length} sub="Active products with stock or sales" color="#60a5fa" />
             <SummaryCard label="Closing Units" value={invTotalUnits.toLocaleString("en-ZA")} sub="Total units on hand" color="#e8e8e8" />
-            <SummaryCard label="Inventory Cost" value={formatRand(invTotalCost)} sub="Closing stock at cost" color="#4ade80" />
-            <SummaryCard label="Negative Stock" value={invNegative} sub="SKUs oversold below zero" color={invNegative > 0 ? "#f87171" : "#4ade80"} />
+            <SummaryCard label="Inventory Cost" value={formatRand(invTotalCost)} sub="Closing stock at cost" color="#34ad79" />
+            <SummaryCard label="Negative Stock" value={invNegative} sub="SKUs oversold below zero" color={invNegative > 0 ? "#f87171" : "#34ad79"} />
           </div>
 
           <div style={{ background: "#1a1d27", borderRadius: "10px", overflow: "hidden", border: "1px solid #2a2d3a" }}>
@@ -556,7 +556,7 @@ export default function StockValueReport() {
                           <td style={{ padding: "10px 16px", textAlign: "right", color: negative ? "#f87171" : "#9ca3af" }}>
                             {r.days_cover === null || r.days_cover === undefined ? "—" : (parseFloat(r.days_cover)).toFixed(2)}
                           </td>
-                          <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: 600, color: invCost < 0 ? "#f87171" : "#4ade80" }}>
+                          <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: 600, color: invCost < 0 ? "#f87171" : "#34ad79" }}>
                             {formatRand(invCost)}
                           </td>
                         </tr>
@@ -604,14 +604,14 @@ export default function StockValueReport() {
                           }}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#4ade80" }} />
+                            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#34ad79" }} />
                             <span style={{ fontWeight: 600, fontSize: "15px" }}>{store.storeName}</span>
                             <span style={{ fontSize: "12px", color: "#6b7280" }}>{store.items.length} products</span>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
                             <div style={{ textAlign: "right" }}>
                               <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "2px" }}>Cost Value</div>
-                              <div style={{ fontWeight: 700, color: "#4ade80", fontSize: "15px" }}>{formatRand(store.totalCostValue)}</div>
+                              <div style={{ fontWeight: 700, color: "#34ad79", fontSize: "15px" }}>{formatRand(store.totalCostValue)}</div>
                             </div>
                             <div style={{ textAlign: "right" }}>
                               <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "2px" }}>Retail Value</div>
@@ -642,7 +642,7 @@ export default function StockValueReport() {
                                       <td style={{ padding: "10px 16px", color: "#9ca3af" }}>{item.qty}</td>
                                       <td style={{ padding: "10px 16px", color: "#9ca3af" }}>{formatRand(item.costPrice)}</td>
                                       <td style={{ padding: "10px 16px", color: "#9ca3af" }}>{formatRand(item.retailPrice)}</td>
-                                      <td style={{ padding: "10px 16px", color: "#4ade80", fontWeight: 600 }}>{formatRand(item.costValue)}</td>
+                                      <td style={{ padding: "10px 16px", color: "#34ad79", fontWeight: 600 }}>{formatRand(item.costValue)}</td>
                                       <td style={{ padding: "10px 16px", color: "#60a5fa", fontWeight: 600 }}>{formatRand(item.retailValue)}</td>
                                     </tr>
                                   );
@@ -664,7 +664,7 @@ export default function StockValueReport() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px", marginBottom: "20px" }}>
                   <SummaryCard label="Total Revenue" value={formatRand(cogsData.totalRevenue)} sub="From completed orders" color="#60a5fa" />
                   <SummaryCard label="Cost of Goods Sold" value={formatRand(cogsData.totalCOGS)} sub="Stock cost for sold items" color="#f59e0b" />
-                  <SummaryCard label="Gross Profit" value={formatRand(cogsData.grossProfit)} sub="Revenue minus COGS" color="#4ade80" />
+                  <SummaryCard label="Gross Profit" value={formatRand(cogsData.grossProfit)} sub="Revenue minus COGS" color="#34ad79" />
                   <SummaryCard label="Gross Margin" value={cogsData.margin.toFixed(1) + "%"} sub="Profit as % of revenue" color="#a78bfa" />
                 </div>
                 <div style={{ background: "#1a1d27", borderRadius: "10px", padding: "24px", border: "1px solid #2a2d3a" }}>
@@ -677,7 +677,7 @@ export default function StockValueReport() {
                       { label: "Total Items Sold", value: cogsData.totalItemsSold.toFixed(0) + " units" },
                       { label: "Total Revenue", value: formatRand(cogsData.totalRevenue), color: "#60a5fa" },
                       { label: "Total COGS", value: formatRand(cogsData.totalCOGS), color: "#f59e0b" },
-                      { label: "Gross Profit", value: formatRand(cogsData.grossProfit), color: "#4ade80" },
+                      { label: "Gross Profit", value: formatRand(cogsData.grossProfit), color: "#34ad79" },
                       { label: "Gross Margin %", value: cogsData.margin.toFixed(2) + "%", color: "#a78bfa" },
                     ].map(function (row, i) {
                       return (
@@ -698,7 +698,7 @@ export default function StockValueReport() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px", marginBottom: "20px" }}>
                   <SummaryCard label="Total POs" value={purchaseOrderData.totalOrders} sub="All purchase orders" color="#60a5fa" />
                   <SummaryCard label="Total Ordered" value={formatRand(purchaseOrderData.totalOrdered)} sub="Invoice value" color="#e8e8e8" />
-                  <SummaryCard label="Total Paid" value={formatRand(purchaseOrderData.totalPaid)} sub="Payments made" color="#4ade80" />
+                  <SummaryCard label="Total Paid" value={formatRand(purchaseOrderData.totalPaid)} sub="Payments made" color="#34ad79" />
                   <SummaryCard label="Outstanding" value={formatRand(purchaseOrderData.totalOutstanding)} sub="Balance due to suppliers" color="#f87171" />
                 </div>
                 <div style={{ background: "#1a1d27", borderRadius: "10px", overflow: "hidden", border: "1px solid #2a2d3a" }}>
@@ -716,7 +716,7 @@ export default function StockValueReport() {
                     </thead>
                     <tbody>
                       {purchaseOrderData.orders.slice(0, 50).map(function (po) {
-                        var statusColor = po.status === "received" ? "#4ade80" : po.status === "pending" ? "#f59e0b" : "#9ca3af";
+                        var statusColor = po.status === "received" ? "#34ad79" : po.status === "pending" ? "#f59e0b" : "#9ca3af";
                         var balance = parseFloat(po.balance_due || 0);
                         return (
                           <tr key={po.id} style={{ borderTop: "1px solid #1f2230" }}>
@@ -728,8 +728,8 @@ export default function StockValueReport() {
                               </span>
                             </td>
                             <td style={{ padding: "11px 16px", color: "#e8e8e8" }}>{formatRand(po.invoice_total || po.calculated_total)}</td>
-                            <td style={{ padding: "11px 16px", color: "#4ade80" }}>{formatRand(po.amount_paid)}</td>
-                            <td style={{ padding: "11px 16px", color: balance > 0 ? "#f87171" : "#4ade80", fontWeight: 600 }}>{formatRand(balance)}</td>
+                            <td style={{ padding: "11px 16px", color: "#34ad79" }}>{formatRand(po.amount_paid)}</td>
+                            <td style={{ padding: "11px 16px", color: balance > 0 ? "#f87171" : "#34ad79", fontWeight: 600 }}>{formatRand(balance)}</td>
                             <td style={{ padding: "11px 16px", color: "#6b7280" }}>{formatDate(po.received_at || po.created_at)}</td>
                           </tr>
                         );
@@ -761,7 +761,7 @@ export default function StockValueReport() {
                       {stockMovements.map(function (m) {
                         var qty = parseFloat(m.quantity || 0);
                         var isIn = m.movement_type === "in" || m.movement_type === "purchase" || m.movement_type === "receive" || qty > 0;
-                        var typeColor = isIn ? "#4ade80" : "#f87171";
+                        var typeColor = isIn ? "#34ad79" : "#f87171";
                         return (
                           <tr key={m.id} style={{ borderTop: "1px solid #1f2230" }}>
                             <td style={{ padding: "10px 16px", color: "#e8e8e8" }}>{m.products ? m.products.name : "—"}</td>

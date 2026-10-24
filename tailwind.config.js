@@ -19,6 +19,11 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
+        // Canna Life Co brand green (logo #04643A) replaces Tailwind's default green everywhere.
+        green: {
+          50: '#ecf8f2', 100: '#d3f0e2', 200: '#a8e0c5', 300: '#6fc9a0', 400: '#34ad79',
+          500: '#0f8a58', 600: '#04643a', 700: '#035231', 800: '#043f27', 900: '#052f1d', 950: '#021d11',
+        },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

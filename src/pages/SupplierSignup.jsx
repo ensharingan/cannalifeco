@@ -247,7 +247,7 @@ export default function SupplierSignup() {
   );
 }
 
-var green = "#4ade80";
+var green = "#34ad79";
 var darkBg = "#0f1a12";
 var cardBg = "#152018";
 var borderColor = "#2a3d2e";

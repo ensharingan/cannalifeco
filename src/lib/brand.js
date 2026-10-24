@@ -32,7 +32,7 @@ export const BRAND = {
   // Primary accent, used for PDF headers and meta theme-colour. Keep in sync
   // with --primary in index.css if you change it.
   colors: {
-    primaryHex: '#16a34a',
+    primaryHex: '#04643a',
     primaryRgb: [22, 163, 74],
     darkRgb: [20, 20, 20],
   },

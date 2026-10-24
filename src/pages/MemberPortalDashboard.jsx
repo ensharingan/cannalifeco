@@ -43,7 +43,7 @@ function formatDate(d) {
 var ORDER_STATUS_META = {
   pending:   { bg: "rgba(245,158,11,0.1)", color: "#f59e0b", label: "⏳ Pending" },
   unpaid:    { bg: "rgba(245,158,11,0.1)", color: "#f59e0b", label: "⏳ Awaiting Payment" },
-  completed: { bg: "rgba(34,197,94,0.1)",  color: "#22c55e", label: "✅ Completed" },
+  completed: { bg: "rgba(34,197,94,0.1)",  color: "#0f8a58", label: "✅ Completed" },
   refunded:  { bg: "rgba(239,68,68,0.1)",  color: "#ef4444", label: "↩ Refunded" },
   cancelled: { bg: "rgba(239,68,68,0.1)",  color: "#ef4444", label: "❌ Cancelled" },
 };
@@ -52,7 +52,7 @@ var ORDER_STATUS_META = {
 // conventions depending on where they were written from (portal vs staff
 // admin), so everything routes through one normaliser before it hits a label.
 var FICA_STATUS_META = {
-  verified: { bg: "rgba(34,197,94,0.12)",  color: "#22c55e", label: "✅ Verified" },
+  verified: { bg: "rgba(34,197,94,0.12)",  color: "#0f8a58", label: "✅ Verified" },
   pending:  { bg: "rgba(245,158,11,0.12)", color: "#f59e0b", label: "⏳ Pending Review" },
   rejected: { bg: "rgba(239,68,68,0.12)",  color: "#ef4444", label: "⚠️ Action Needed" },
   none:     { bg: "rgba(148,163,184,0.12)", color: "#94a3b8", label: "Not Submitted" },
@@ -60,7 +60,7 @@ var FICA_STATUS_META = {
 
 var SECTION21_STATUS_META = {
   submitted: { bg: "rgba(245,158,11,0.12)", color: "#f59e0b", label: "⏳ Under Review" },
-  approved:  { bg: "rgba(34,197,94,0.12)",  color: "#22c55e", label: "✅ Approved" },
+  approved:  { bg: "rgba(34,197,94,0.12)",  color: "#0f8a58", label: "✅ Approved" },
   rejected:  { bg: "rgba(239,68,68,0.12)",  color: "#ef4444", label: "⚠️ Action Needed" },
   none:      { bg: "rgba(148,163,184,0.12)", color: "#94a3b8", label: "Not Started" },
 };
@@ -508,7 +508,7 @@ export default function MemberPortalDashboard() {
     rr(0, 0, 1000, 580, 32); ctx.fill();
 
     var borderGrad = ctx.createLinearGradient(0, 0, 1000, 580);
-    borderGrad.addColorStop(0, "#22c55e"); borderGrad.addColorStop(0.5, "#fbbf24"); borderGrad.addColorStop(1, "#ef4444");
+    borderGrad.addColorStop(0, "#0f8a58"); borderGrad.addColorStop(0.5, "#fbbf24"); borderGrad.addColorStop(1, "#ef4444");
     ctx.strokeStyle = borderGrad; ctx.lineWidth = 4;
     rr(2, 2, 996, 576, 30); ctx.stroke();
 
@@ -521,12 +521,12 @@ export default function MemberPortalDashboard() {
     ctx.restore();
 
     // Brand mark, top-left
-    ctx.font = "32px serif"; ctx.fillStyle = "#22c55e";
+    ctx.font = "32px serif"; ctx.fillStyle = "#0f8a58";
     ctx.fillText("🌿", 40, 70);
     ctx.font = "bold 34px Arial"; ctx.fillStyle = "#ffffff";
     ctx.fillText("Canna Life Co", 82, 68);
     var wordmarkWidth = ctx.measureText("Canna Life Co").width;
-    ctx.fillStyle = "#22c55e";
+    ctx.fillStyle = "#0f8a58";
     rr(82 + wordmarkWidth + 12, 40, 66, 30, 8); ctx.fill();
     ctx.fillStyle = "#0a0e0a"; ctx.font = "bold 15px Arial";
     ctx.fillText("POS", 82 + wordmarkWidth + 28, 61);
@@ -538,7 +538,7 @@ export default function MemberPortalDashboard() {
     ctx.fillText("GOOD PEOPLE", 960, 46);
     ctx.fillText("HIGHER REWARDS", 960, 62);
     ctx.textAlign = "left";
-    var barColors = ["#22c55e", "#fbbf24", "#ef4444"];
+    var barColors = ["#0f8a58", "#fbbf24", "#ef4444"];
     var barX = 860;
     for (var bi = 0; bi < 3; bi++) {
       ctx.fillStyle = barColors[bi];
@@ -566,7 +566,7 @@ export default function MemberPortalDashboard() {
     // Avatar with tier-colour ring
     var cx = 100, cy = 220, r = 56;
     var ringGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-    ringGrad.addColorStop(0, "#22c55e"); ringGrad.addColorStop(0.5, "#fbbf24"); ringGrad.addColorStop(1, "#ef4444");
+    ringGrad.addColorStop(0, "#0f8a58"); ringGrad.addColorStop(0.5, "#fbbf24"); ringGrad.addColorStop(1, "#ef4444");
     ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.fillStyle = ringGrad; ctx.fill();
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
@@ -574,7 +574,7 @@ export default function MemberPortalDashboard() {
       ctx.drawImage(avatarImg, cx - r, cy - r, r * 2, r * 2);
     } else {
       var avGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-      avGrad.addColorStop(0, "#22c55e"); avGrad.addColorStop(1, "#16a34a");
+      avGrad.addColorStop(0, "#0f8a58"); avGrad.addColorStop(1, "#04643a");
       ctx.fillStyle = avGrad; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
       ctx.fillStyle = "#fff"; ctx.font = "bold 36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText((member.first_name || "?")[0] + (member.last_name || "?")[0], cx, cy + 2);
@@ -599,7 +599,7 @@ export default function MemberPortalDashboard() {
 
     ctx.fillStyle = "#6b7280"; ctx.font = "13px Arial";
     ctx.fillText("STATUS", 66, stripY + 34);
-    ctx.fillStyle = member.is_active ? "#22c55e" : "#ef4444"; ctx.font = "bold 24px Arial";
+    ctx.fillStyle = member.is_active ? "#0f8a58" : "#ef4444"; ctx.font = "bold 24px Arial";
     ctx.fillText(member.is_active ? "● ACTIVE" : "● INACTIVE", 66, stripY + 66);
 
     ctx.fillStyle = "#6b7280"; ctx.font = "13px Arial";
@@ -671,9 +671,9 @@ export default function MemberPortalDashboard() {
     logoutBtn: { background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "#e5e7eb", padding: "7px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "'Outfit', sans-serif", backdropFilter: "blur(4px)" },
     headerRow: { display: "flex", alignItems: "flex-end", gap: "16px", padding: "0 20px", marginTop: "-46px", position: "relative", zIndex: 3 },
     avatarRingOuter: function (size) {
-      return { width: size + "px", height: size + "px", borderRadius: "50%", background: "conic-gradient(from 180deg, #22c55e, #fbbf24, #ef4444, #22c55e)", padding: "3px", flexShrink: 0, boxShadow: "0 4px 18px rgba(0,0,0,0.4)" };
+      return { width: size + "px", height: size + "px", borderRadius: "50%", background: "conic-gradient(from 180deg, #0f8a58, #fbbf24, #ef4444, #0f8a58)", padding: "3px", flexShrink: 0, boxShadow: "0 4px 18px rgba(0,0,0,0.4)" };
     },
-    avatarRingInner: { width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", background: "linear-gradient(135deg, #22c55e, #16a34a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", fontWeight: "700", color: "#fff", border: "3px solid #0a0a0a" },
+    avatarRingInner: { width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", background: "linear-gradient(135deg, #0f8a58, #04643a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", fontWeight: "700", color: "#fff", border: "3px solid #0a0a0a" },
     headerNameBlock: { paddingBottom: "10px", minWidth: 0 },
     headerName: { fontSize: "20px", fontWeight: "700", lineHeight: 1.15 },
     headerTierRow: { display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" },
@@ -688,9 +688,9 @@ export default function MemberPortalDashboard() {
     tabsOuter: { borderBottom: "1px solid rgba(0,0,0,0.09)", marginTop: "14px" },
     tabsInner: { display: "flex", padding: "0 20px", overflowX: "auto" },
     tab: function (active) {
-      return { padding: "12px 18px", fontSize: "13px", fontWeight: active ? "600" : "400", color: active ? "#22c55e" : "#6b7280", cursor: "pointer", background: "none", border: "none", borderBottom: "2px solid " + (active ? "#22c55e" : "transparent"), fontFamily: "'Outfit', sans-serif", whiteSpace: "nowrap", position: "relative" };
+      return { padding: "12px 18px", fontSize: "13px", fontWeight: active ? "600" : "400", color: active ? "#0f8a58" : "#6b7280", cursor: "pointer", background: "none", border: "none", borderBottom: "2px solid " + (active ? "#0f8a58" : "transparent"), fontFamily: "'Outfit', sans-serif", whiteSpace: "nowrap", position: "relative" };
     },
-    tabBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#22c55e", color: "#fff", borderRadius: "50%", width: "16px", height: "16px", fontSize: "9px", fontWeight: "700", position: "absolute", top: "6px", right: "6px" },
+    tabBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#0f8a58", color: "#fff", borderRadius: "50%", width: "16px", height: "16px", fontSize: "9px", fontWeight: "700", position: "absolute", top: "6px", right: "6px" },
     tabDot: { display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444", position: "absolute", top: "10px", right: "8px" },
 
     card: { background: "#ffffff", border: "1px solid rgba(0,0,0,0.09)", borderRadius: "14px", padding: "20px", marginBottom: "14px" },
@@ -698,19 +698,19 @@ export default function MemberPortalDashboard() {
     stat: { background: "#f8faf8", borderRadius: "10px", padding: "12px" },
     label: { color: "#6b7280", fontSize: "11px", marginBottom: "3px" },
     val: { color: "#111827", fontSize: "15px", fontWeight: "600" },
-    greenBtn: { width: "100%", padding: "12px", background: "linear-gradient(135deg, #22c55e, #16a34a)", border: "none", borderRadius: "10px", color: "#fff", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: "'Outfit', sans-serif", marginTop: "14px" },
+    greenBtn: { width: "100%", padding: "12px", background: "linear-gradient(135deg, #0f8a58, #04643a)", border: "none", borderRadius: "10px", color: "#fff", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: "'Outfit', sans-serif", marginTop: "14px" },
     productRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid rgba(0,0,0,0.09)" },
     badge: function (type) {
-      var c = { Indoor: "#22c55e", Outdoor: "#f59e0b", Hydro: "#3b82f6", Tunnel: "#a855f7", Pops: "#ec4899", Greendoor: "#14b8a6" };
+      var c = { Indoor: "#0f8a58", Outdoor: "#f59e0b", Hydro: "#3b82f6", Tunnel: "#a855f7", Pops: "#ec4899", Greendoor: "#14b8a6" };
       var color = c[type] || "#6b7280";
       return { display: "inline-block", padding: "2px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "600", background: color + "20", color: color };
     },
     search: { width: "100%", padding: "10px 14px", background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.15)", borderRadius: "8px", color: "#111827", fontSize: "14px", outline: "none", fontFamily: "'Outfit', sans-serif", marginBottom: "12px", boxSizing: "border-box" },
     storeSelect: { width: "100%", padding: "10px 14px", background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.15)", borderRadius: "8px", color: "#111827", fontSize: "14px", outline: "none", fontFamily: "'Outfit', sans-serif", marginBottom: "12px", boxSizing: "border-box", appearance: "none", cursor: "pointer" },
     catPill: function (active) {
-      return { display: "inline-block", padding: "6px 14px", borderRadius: "20px", fontSize: "12px", fontWeight: "500", cursor: "pointer", border: "none", fontFamily: "'Outfit', sans-serif", background: active ? "#22c55e" : "rgba(0,0,0,0.09)", color: active ? "#fff" : "#6b7280", marginRight: "6px", marginBottom: "6px", whiteSpace: "nowrap" };
+      return { display: "inline-block", padding: "6px 14px", borderRadius: "20px", fontSize: "12px", fontWeight: "500", cursor: "pointer", border: "none", fontFamily: "'Outfit', sans-serif", background: active ? "#0f8a58" : "rgba(0,0,0,0.09)", color: active ? "#fff" : "#6b7280", marginRight: "6px", marginBottom: "6px", whiteSpace: "nowrap" };
     },
-    stockBadge: { display: "inline-block", padding: "2px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "600", background: "rgba(34,197,94,0.15)", color: "#22c55e" },
+    stockBadge: { display: "inline-block", padding: "2px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "600", background: "rgba(34,197,94,0.15)", color: "#0f8a58" },
     tabCard: function (owing) {
       return {
         gridColumn: "1 / -1",
@@ -723,7 +723,7 @@ export default function MemberPortalDashboard() {
 
     // ── Card (the physical/digital membership card widget) ──
     cardOuterGlow: { boxShadow: "0 0 30px rgba(34,197,94,0.12)", borderRadius: "20px" },
-    cardBorderWrap: { background: "linear-gradient(135deg, #22c55e, #fbbf24, #ef4444)", padding: "2px", borderRadius: "20px" },
+    cardBorderWrap: { background: "linear-gradient(135deg, #0f8a58, #fbbf24, #ef4444)", padding: "2px", borderRadius: "20px" },
     flipOuter: { perspective: "1400px", cursor: "pointer", WebkitTapHighlightColor: "transparent" },
     flipInner: function (isFlipped) {
       return { position: "relative", width: "100%", minHeight: "300px", transformStyle: "preserve-3d", transition: "transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1)", transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" };
@@ -742,7 +742,7 @@ export default function MemberPortalDashboard() {
     cardHeaderRow: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", position: "relative", zIndex: 2 },
     cardBrandRow: { display: "flex", alignItems: "center", gap: "6px" },
     cardBrandWordmark: { fontSize: "16px", fontWeight: "800", color: "#fff" },
-    cardBrandPill: { background: "#22c55e", color: "#06170c", fontSize: "9px", fontWeight: "800", padding: "2px 7px", borderRadius: "5px", letterSpacing: "0.5px" },
+    cardBrandPill: { background: "#0f8a58", color: "#06170c", fontSize: "9px", fontWeight: "800", padding: "2px 7px", borderRadius: "5px", letterSpacing: "0.5px" },
     cardSubtitle: { fontSize: "8px", color: "#7fa88e", fontWeight: "700", letterSpacing: "1.4px", marginTop: "3px" },
     cardTaglineWrap: { textAlign: "right" },
     cardTaglineLine: { fontSize: "8px", color: "#d4af37", fontWeight: "700", letterSpacing: "0.8px", lineHeight: 1.5 },
@@ -761,7 +761,7 @@ export default function MemberPortalDashboard() {
     cardStripVal: { fontSize: "13px", fontWeight: "700", marginTop: "2px" },
     cardBottomTagline: { marginTop: "auto", paddingTop: "14px", fontSize: "8px", color: "#d4af37", fontWeight: "700", letterSpacing: "0.6px", lineHeight: 1.6, position: "relative", zIndex: 2 },
     cardFlipHint: { textAlign: "center", fontSize: "10px", color: "#6b7280", marginTop: "10px", position: "relative", zIndex: 2 },
-    cardBackTitle: { textAlign: "center", fontSize: "10px", color: "#22c55e", fontWeight: "700", letterSpacing: "1px", margin: "20px 0 16px", position: "relative", zIndex: 2 },
+    cardBackTitle: { textAlign: "center", fontSize: "10px", color: "#0f8a58", fontWeight: "700", letterSpacing: "1px", margin: "20px 0 16px", position: "relative", zIndex: 2 },
     cardBackDetailsRow: { display: "flex", justifyContent: "space-between", gap: "10px", position: "relative", zIndex: 2 },
     cardBackQrWrap: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", marginTop: "10px", position: "relative", zIndex: 2 },
 
@@ -845,11 +845,11 @@ export default function MemberPortalDashboard() {
             <div style={s.statCellLabel}>POINTS</div>
           </div>
           <div style={s.statCell}>
-            <div style={Object.assign({}, s.statCellVal, { color: "#22c55e" })}>{(member.store_credit || 0).toFixed(0)}</div>
+            <div style={Object.assign({}, s.statCellVal, { color: "#0f8a58" })}>{(member.store_credit || 0).toFixed(0)}</div>
             <div style={s.statCellLabel}>CREDIT</div>
           </div>
           <div style={s.statCellLast}>
-            <div style={Object.assign({}, s.statCellVal, { color: member.is_active ? "#22c55e" : "#ef4444" })}>{member.is_active ? "Active" : "Inactive"}</div>
+            <div style={Object.assign({}, s.statCellVal, { color: member.is_active ? "#0f8a58" : "#ef4444" })}>{member.is_active ? "Active" : "Inactive"}</div>
             <div style={s.statCellLabel}>STATUS</div>
           </div>
         </div>
@@ -904,7 +904,7 @@ export default function MemberPortalDashboard() {
                             <div style={s.cardTaglineLine}>GOOD PEOPLE</div>
                             <div style={s.cardTaglineLine}>HIGHER REWARDS</div>
                             <div style={s.cardTaglineBar}>
-                              <div style={Object.assign({}, s.cardTaglineBarSeg, { background: "#22c55e" })} />
+                              <div style={Object.assign({}, s.cardTaglineBarSeg, { background: "#0f8a58" })} />
                               <div style={Object.assign({}, s.cardTaglineBarSeg, { background: "#fbbf24" })} />
                               <div style={Object.assign({}, s.cardTaglineBarSeg, { background: "#ef4444" })} />
                             </div>
@@ -944,7 +944,7 @@ export default function MemberPortalDashboard() {
                         <div style={s.cardStripRow}>
                           <div style={s.cardStripCell}>
                             <div style={s.cardStripLabel}>STATUS</div>
-                            <div style={Object.assign({}, s.cardStripVal, { color: member.is_active ? "#22c55e" : "#ef4444" })}>
+                            <div style={Object.assign({}, s.cardStripVal, { color: member.is_active ? "#0f8a58" : "#ef4444" })}>
                               {member.is_active ? "● ACTIVE" : "● INACTIVE"}
                             </div>
                           </div>
@@ -977,7 +977,7 @@ export default function MemberPortalDashboard() {
                             <div style={s.cardTaglineLine}>SAME COMMUNITY</div>
                             <div style={s.cardTaglineLine}>BIGGER TOMORROWS</div>
                             <div style={s.cardTaglineBar}>
-                              <div style={Object.assign({}, s.cardTaglineBarSeg, { background: "#22c55e" })} />
+                              <div style={Object.assign({}, s.cardTaglineBarSeg, { background: "#0f8a58" })} />
                               <div style={Object.assign({}, s.cardTaglineBarSeg, { background: "#fbbf24" })} />
                               <div style={Object.assign({}, s.cardTaglineBarSeg, { background: "#ef4444" })} />
                             </div>
@@ -1050,7 +1050,7 @@ export default function MemberPortalDashboard() {
                 </div>
                 <div>
                   <div style={s.label}>Status</div>
-                  <div style={{ color: member.is_active ? "#22c55e" : "#ef4444", fontSize: "13px", fontWeight: "600" }}>
+                  <div style={{ color: member.is_active ? "#0f8a58" : "#ef4444", fontSize: "13px", fontWeight: "600" }}>
                     {member.is_active ? "Active" : "Inactive"}
                   </div>
                 </div>
@@ -1069,7 +1069,7 @@ export default function MemberPortalDashboard() {
               </div>
               {unreadCount > 0 && (
                 <button onClick={function () { markAllRead(notifications); }}
-                  style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: "8px", color: "#22c55e", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>
+                  style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: "8px", color: "#0f8a58", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>
                   Mark all read
                 </button>
               )}
@@ -1109,7 +1109,7 @@ export default function MemberPortalDashboard() {
                         {n.image_url && <img src={n.image_url} alt="" style={s.inboxThumb} />}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "5px" }}>
-                            {!isRead && <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#22c55e", display: "inline-block", flexShrink: 0 }} />}
+                            {!isRead && <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#0f8a58", display: "inline-block", flexShrink: 0 }} />}
                             <h4 style={{ fontSize: "18px", fontWeight: "700", margin: 0, lineHeight: "1.3" }}>{n.title}</h4>
                           </div>
                           <p style={{ fontSize: "14px", color: "#c7ccd6", margin: "0 0 10px", lineHeight: "1.5" }}>{n.message}</p>
@@ -1195,7 +1195,7 @@ export default function MemberPortalDashboard() {
                           {p.category && <span style={{ fontSize: "10px", color: "#6b7280" }}>{p.category}</span>}
                         </div>
                         <div style={{ fontSize: "14px", fontWeight: "600", marginBottom: "4px" }}>{p.name}</div>
-                        <div style={{ fontSize: "16px", fontWeight: "700", color: "#22c55e", marginBottom: "2px" }}>{(p.price || 0).toFixed(2)}</div>
+                        <div style={{ fontSize: "16px", fontWeight: "700", color: "#0f8a58", marginBottom: "2px" }}>{(p.price || 0).toFixed(2)}</div>
                         {p.stock_quantity <= 5 && (
                           <div style={{ fontSize: "10px", color: "#f59e0b", marginBottom: "8px" }}>Only {p.stock_quantity} left</div>
                         )}
@@ -1265,7 +1265,7 @@ export default function MemberPortalDashboard() {
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px", paddingTop: "8px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                         <span style={{ fontSize: "12px", color: "#6b7280" }}>Total</span>
-                        <span style={{ fontSize: "14px", fontWeight: "700", color: "#22c55e" }}>{(parseFloat(o.total_amount) || 0).toFixed(2)}</span>
+                        <span style={{ fontSize: "14px", fontWeight: "700", color: "#0f8a58" }}>{(parseFloat(o.total_amount) || 0).toFixed(2)}</span>
                       </div>
                       {o.notes && <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "6px", fontStyle: "italic" }}>"{o.notes}"</div>}
                     </div>
@@ -1331,7 +1331,7 @@ export default function MemberPortalDashboard() {
       </div>
 
       <div style={{ textAlign: "center", padding: "8px 20px 32px", color: "#4b5563", fontSize: "11px" }}>
-        🌿 Powered by <span style={{ color: "#22c55e", fontWeight: "600" }}>Canna Life Co</span>
+        🌿 Powered by <span style={{ color: "#0f8a58", fontWeight: "600" }}>Canna Life Co</span>
       </div>
 
       {/* FLOATING CART BAR */}
@@ -1342,7 +1342,7 @@ export default function MemberPortalDashboard() {
               <span style={{ fontSize: "20px" }}>🛒</span>
               <span style={{ fontSize: "14px", fontWeight: "700" }}>{cartCount} item{cartCount !== 1 ? "s" : ""} · {cartTotal.toFixed(2)}</span>
             </div>
-            <span style={{ fontSize: "14px", fontWeight: "800", color: "#0a0a0a", background: "#22c55e", padding: "9px 18px", borderRadius: "10px", letterSpacing: "0.3px" }}>View Cart →</span>
+            <span style={{ fontSize: "14px", fontWeight: "800", color: "#0a0a0a", background: "#0f8a58", padding: "9px 18px", borderRadius: "10px", letterSpacing: "0.3px" }}>View Cart →</span>
           </div>
         </div>
       )}
@@ -1395,7 +1395,7 @@ export default function MemberPortalDashboard() {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "14px 0" }}>
               <span style={{ fontSize: "13px", color: "#6b7280" }}>Total</span>
-              <span style={{ fontSize: "20px", fontWeight: "700", color: "#22c55e" }}>{cartTotal.toFixed(2)}</span>
+              <span style={{ fontSize: "20px", fontWeight: "700", color: "#0f8a58" }}>{cartTotal.toFixed(2)}</span>
             </div>
 
             <button style={s.greenBtn} disabled={placingOrder} onClick={submitPreorder}>

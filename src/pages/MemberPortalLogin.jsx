@@ -143,7 +143,7 @@ export default function MemberPortalLogin() {
               width: "64px",
               height: "64px",
               borderRadius: "16px",
-              background: "linear-gradient(135deg, #22c55e, #16a34a)",
+              background: "linear-gradient(135deg, #0f8a58, #04643a)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -209,7 +209,7 @@ export default function MemberPortalLogin() {
                   letterSpacing: "1px",
                   boxSizing: "border-box",
                 }}
-                onFocus={function (e) { e.target.style.borderColor = "#22c55e"; }}
+                onFocus={function (e) { e.target.style.borderColor = "#0f8a58"; }}
                 onBlur={function (e) { e.target.style.borderColor = "rgba(0,0,0,0.14)"; }}
               />
               <p style={{
@@ -251,7 +251,7 @@ export default function MemberPortalLogin() {
                   fontFamily: "'Outfit', sans-serif",
                   boxSizing: "border-box",
                 }}
-                onFocus={function (e) { e.target.style.borderColor = "#22c55e"; }}
+                onFocus={function (e) { e.target.style.borderColor = "#0f8a58"; }}
                 onBlur={function (e) { e.target.style.borderColor = "rgba(0,0,0,0.14)"; }}
               />
             </div>
@@ -262,7 +262,7 @@ export default function MemberPortalLogin() {
               style={{
                 width: "100%",
                 padding: "14px",
-                background: loading ? "#374151" : "linear-gradient(135deg, #22c55e, #16a34a)",
+                background: loading ? "#374151" : "linear-gradient(135deg, #0f8a58, #04643a)",
                 border: "none",
                 borderRadius: "10px",
                 color: "#fff",
@@ -285,7 +285,7 @@ export default function MemberPortalLogin() {
           fontSize: "12px",
           marginTop: "24px",
         }}>
-          🌿 Powered by <span style={{ color: "#22c55e", fontWeight: "600" }}>Canna Life Co</span>
+          🌿 Powered by <span style={{ color: "#0f8a58", fontWeight: "600" }}>Canna Life Co</span>
         </p>
       </div>
     </div>
