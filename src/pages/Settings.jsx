@@ -109,7 +109,7 @@ export default function Settings() {
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your company, team & suppliers</p>
+        <p className="text-sm text-muted-foreground">Manage your company and team</p>
       </div>
 
       <Tabs defaultValue={portalOnly ? "portal" : "company"}>
@@ -117,8 +117,6 @@ export default function Settings() {
           {!portalOnly && <TabsTrigger value="company">Company</TabsTrigger>}
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="portal">Member Portal</TabsTrigger>
-          {!portalOnly && <TabsTrigger value="currency">Currency</TabsTrigger>}
-          {!portalOnly && <TabsTrigger value="suppliers">Suppliers</TabsTrigger>}
         </TabsList>
 
         {/* Company tab */}
