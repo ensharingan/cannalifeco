@@ -322,7 +322,7 @@ export default function Members() {
         id_number: data.id_number || null,
         nationality: data.nationality || null,
         address: data.address || null,
-        membership_type: data.membership_type || "standard",
+        membership_type: data.membership_type || "bronze",
         group_affiliation: data.group_affiliation || null,
         notes: data.notes || null,
         profile_image: data.profile_image || null,
@@ -381,7 +381,7 @@ export default function Members() {
         gender: data.gender || null,
         membership_start_date: data.membership_start_date || null,
         nationality: data.nationality || null,
-        membership_type: data.membership_type || "standard",
+        membership_type: data.membership_type || "bronze",
         group_affiliation: data.group_affiliation || null,
         address: data.address || null,
         notes: data.notes || null,
@@ -832,7 +832,7 @@ export default function Members() {
                   </div>
                   <div><span className="text-muted-foreground text-xs">Total Spend</span><p className="font-medium">{formatCurrency(viewMember.total_spend || 0)}</p></div>
                   <div><span className="text-muted-foreground text-xs">Visits</span><p className="font-medium">{viewMember.visit_count || 0}</p></div>
-                  <div><span className="text-muted-foreground text-xs">Type</span><p className="font-medium capitalize">{viewMember.membership_type || "standard"}</p></div>
+                  <div><span className="text-muted-foreground text-xs">Type</span><p className="font-medium capitalize">{viewMember.membership_type || "bronze"}</p></div>
                   <div><span className="text-muted-foreground text-xs">Group</span><p className="font-medium">{viewMember.group_affiliation || "N/A"}</p></div>
                 </div>
 
