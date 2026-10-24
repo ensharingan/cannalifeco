@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
+import cannalifeLogo from "../cannalife-logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +26,7 @@ const STEP_LABELS = ["Personal Info", "Contact Details", "Confirm"];
 
 const MEMBERSHIP_TYPES = [
   { value: "bronze", label: "Bronze", color: "text-amber-600", activeBg: "bg-amber-600/20 border-amber-500/40 text-amber-500" },
-  { value: "silver", label: "Silver", color: "text-gray-400", activeBg: "bg-gray-400/20 border-gray-400/40 text-gray-300" },
+  { value: "silver", label: "Silver", color: "text-gray-600", activeBg: "bg-gray-400/20 border-gray-400/40 text-gray-700" },
   { value: "gold", label: "Gold", color: "text-yellow-400", activeBg: "bg-yellow-500/20 border-yellow-400/40 text-yellow-400" },
   { value: "platinum", label: "Platinum", color: "text-purple-400", activeBg: "bg-purple-500/20 border-purple-400/40 text-purple-400" },
 ];
@@ -159,7 +160,7 @@ export default function MemberRegister() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-950 via-gray-950 to-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="h-8 w-8 animate-spin text-green-500" />
       </div>
     );
@@ -167,13 +168,13 @@ export default function MemberRegister() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-950 via-gray-950 to-gray-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-sm w-full text-center space-y-4">
           <div className="mx-auto w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center">
             <AlertCircle className="h-7 w-7 text-red-400" />
           </div>
-          <h1 className="text-xl font-semibold text-white">Registration Unavailable</h1>
-          <p className="text-gray-400 text-sm">{error}</p>
+          <h1 className="text-xl font-semibold text-gray-900">Registration Unavailable</h1>
+          <p className="text-gray-600 text-sm">{error}</p>
         </div>
       </div>
     );
@@ -182,51 +183,41 @@ export default function MemberRegister() {
   if (success) {
     const tier = MEMBERSHIP_TYPES.find((t) => t.value === form.membership_type);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-950 via-gray-950 to-gray-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-sm w-full text-center space-y-5">
           <div className="mx-auto w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
-            <CheckCircle2 className="h-8 w-8 text-green-400" />
+            <CheckCircle2 className="h-8 w-8 text-green-700" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-white">Welcome!</h1>
-            <p className="text-gray-400 text-sm">
+            <h1 className="text-2xl font-bold text-gray-900">Welcome!</h1>
+            <p className="text-gray-600 text-sm">
               You're now a{" "}
               <span className={`font-semibold ${tier?.color}`}>{tier?.label}</span> member of{" "}
-              <span className="text-green-400 font-medium">{company.company_name}</span>.
+              <span className="text-green-700 font-medium">{company.company_name}</span>.
             </p>
           </div>
-          <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-4 space-y-1">
+          <div className="bg-white shadow-sm border border-gray-200 rounded-xl p-4 space-y-1">
             <p className="text-xs text-gray-500 uppercase tracking-wider">Your Membership ID</p>
-            <p className="text-2xl font-mono font-bold text-green-400 tracking-widest">
+            <p className="text-2xl font-mono font-bold text-green-700 tracking-widest">
               {membershipId}
             </p>
             <p className="text-xs text-gray-500 mt-2">
               Screenshot this — you'll need it at the counter.
             </p>
           </div>
-          <p className="text-xs text-gray-600">You can close this page now.</p>
+          <p className="text-xs text-gray-500">You can close this page now.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-950 via-gray-950 to-gray-900">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="px-4 pt-8 pb-4 text-center">
-        {company.logo_url ? (
-          <img
-            src={company.logo_url}
-            alt={company.company_name}
-            className="h-14 w-14 rounded-xl mx-auto mb-3 object-cover border border-gray-800"
-          />
-        ) : (
-          <div className="h-14 w-14 rounded-xl mx-auto mb-3 bg-green-600/20 flex items-center justify-center border border-green-500/20">
-            <Leaf className="h-7 w-7 text-green-400" />
-          </div>
-        )}
-        <h1 className="text-xl font-bold text-white">{company.company_name}</h1>
-        <p className="text-sm text-gray-400 mt-1">Member Registration</p>
+        <img src={cannalifeLogo} alt="Canna Life Co" className="h-16 w-auto mx-auto mb-3 object-contain" />
+        <h1 className="text-xl font-bold text-gray-900">{company.company_name}</h1>
+        <p className="text-sm text-gray-600 mt-1">Member Registration</p>
       </div>
 
       {/* Progress */}
@@ -239,18 +230,18 @@ export default function MemberRegister() {
                   i < step
                     ? "bg-green-600 text-white"
                     : i === step
-                      ? "bg-green-600/20 text-green-400 ring-2 ring-green-500/40"
-                      : "bg-gray-800 text-gray-500"
+                      ? "bg-green-600/20 text-green-700 ring-2 ring-green-500/40"
+                      : "bg-gray-200 text-gray-500"
                 }`}
               >
                 {i < step ? "✓" : i + 1}
               </div>
-              <span className={`text-[10px] mt-1 ${i === step ? "text-green-400" : "text-gray-600"}`}>
+              <span className={`text-[10px] mt-1 ${i === step ? "text-green-700" : "text-gray-500"}`}>
                 {label}
               </span>
             </div>
             {i < STEP_LABELS.length - 1 && (
-              <div className={`w-8 h-px mb-4 ${i < step ? "bg-green-600" : "bg-gray-800"}`} />
+              <div className={`w-8 h-px mb-4 ${i < step ? "bg-green-600" : "bg-gray-200"}`} />
             )}
           </div>
         ))}
@@ -258,39 +249,39 @@ export default function MemberRegister() {
 
       {/* Form card */}
       <div className="px-4 pb-8">
-        <div className="max-w-md mx-auto bg-gray-900/80 backdrop-blur border border-gray-800 rounded-2xl p-5 space-y-5">
+        <div className="max-w-md mx-auto bg-white shadow-sm border border-gray-200 rounded-2xl p-5 space-y-5">
 
           {/* Step 0: Personal Info */}
           {step === 0 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-400 mb-1">
+              <div className="flex items-center gap-2 text-green-700 mb-1">
                 <User className="h-4 w-4" />
                 <span className="text-sm font-medium">Personal Information</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-gray-300 text-xs">First Name *</Label>
+                  <Label className="text-gray-700 text-xs">First Name *</Label>
                   <Input
                     value={form.first_name}
                     onChange={set("first_name")}
                     placeholder="First name"
-                    className={`mt-1 bg-gray-950 border-gray-700 text-white placeholder:text-gray-600 ${errors.first_name ? "border-red-500" : ""}`}
+                    className={`mt-1 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 ${errors.first_name ? "border-red-500" : ""}`}
                   />
                   {errors.first_name && <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>}
                 </div>
                 <div>
-                  <Label className="text-gray-300 text-xs">Last Name *</Label>
+                  <Label className="text-gray-700 text-xs">Last Name *</Label>
                   <Input
                     value={form.last_name}
                     onChange={set("last_name")}
                     placeholder="Last name"
-                    className={`mt-1 bg-gray-950 border-gray-700 text-white placeholder:text-gray-600 ${errors.last_name ? "border-red-500" : ""}`}
+                    className={`mt-1 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 ${errors.last_name ? "border-red-500" : ""}`}
                   />
                   {errors.last_name && <p className="text-red-400 text-xs mt-1">{errors.last_name}</p>}
                 </div>
               </div>
               <div>
-                <Label className="text-gray-300 text-xs">Gender</Label>
+                <Label className="text-gray-700 text-xs">Gender</Label>
                 <div className="flex gap-2 mt-1">
                   {["Male", "Female", "Other"].map((g) => (
                     <button
@@ -299,8 +290,8 @@ export default function MemberRegister() {
                       onClick={() => set("gender")(g.toLowerCase())}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
                         form.gender === g.toLowerCase()
-                          ? "bg-green-600/20 text-green-400 border border-green-500/40"
-                          : "bg-gray-950 text-gray-400 border border-gray-700 hover:border-gray-600"
+                          ? "bg-green-600/20 text-green-700 border border-green-500/40"
+                          : "bg-white text-gray-600 border border-gray-300 hover:border-gray-400"
                       }`}
                     >
                       {g}
@@ -310,30 +301,30 @@ export default function MemberRegister() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-gray-300 text-xs">Date of Birth</Label>
+                  <Label className="text-gray-700 text-xs">Date of Birth</Label>
                   <Input
                     type="date"
                     value={form.date_of_birth}
                     onChange={set("date_of_birth")}
-                    className="mt-1 bg-gray-950 border-gray-700 text-white [color-scheme:dark]"
+                    className="mt-1 bg-white border-gray-300 text-gray-900"
                   />
                 </div>
                 <div>
-                  <Label className="text-gray-300 text-xs">SA ID / Passport</Label>
+                  <Label className="text-gray-700 text-xs">SA ID / Passport</Label>
                   <Input
                     value={form.id_number}
                     onChange={set("id_number")}
                     placeholder="ID number"
-                    className="mt-1 bg-gray-950 border-gray-700 text-white placeholder:text-gray-600"
+                    className="mt-1 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
                   />
                 </div>
               </div>
               <div>
-                <Label className="text-gray-300 text-xs">Nationality</Label>
+                <Label className="text-gray-700 text-xs">Nationality</Label>
                 <Input
                   value={form.nationality}
                   onChange={set("nationality")}
-                  className="mt-1 bg-gray-950 border-gray-700 text-white"
+                  className="mt-1 bg-white border-gray-300 text-gray-900"
                 />
               </div>
             </div>
@@ -342,44 +333,44 @@ export default function MemberRegister() {
           {/* Step 1: Contact Details */}
           {step === 1 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-400 mb-1">
+              <div className="flex items-center gap-2 text-green-700 mb-1">
                 <Phone className="h-4 w-4" />
                 <span className="text-sm font-medium">Contact Details</span>
               </div>
               <div>
-                <Label className="text-gray-300 text-xs">Phone Number *</Label>
+                <Label className="text-gray-700 text-xs">Phone Number *</Label>
                 <Input
                   type="tel"
                   value={form.phone}
                   onChange={set("phone")}
                   placeholder="e.g. 072 123 4567"
-                  className={`mt-1 bg-gray-950 border-gray-700 text-white placeholder:text-gray-600 ${errors.phone ? "border-red-500" : ""}`}
+                  className={`mt-1 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 ${errors.phone ? "border-red-500" : ""}`}
                 />
                 {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
               </div>
               <div>
-                <Label className="text-gray-300 text-xs">Email Address</Label>
+                <Label className="text-gray-700 text-xs">Email Address</Label>
                 <Input
                   type="email"
                   value={form.email}
                   onChange={set("email")}
                   placeholder="you@example.com"
-                  className={`mt-1 bg-gray-950 border-gray-700 text-white placeholder:text-gray-600 ${errors.email ? "border-red-500" : ""}`}
+                  className={`mt-1 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 ${errors.email ? "border-red-500" : ""}`}
                 />
                 {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
               </div>
               <div>
-                <Label className="text-gray-300 text-xs">Address</Label>
+                <Label className="text-gray-700 text-xs">Address</Label>
                 <Textarea
                   value={form.address}
                   onChange={set("address")}
                   placeholder="Street, suburb, city"
                   rows={2}
-                  className="mt-1 bg-gray-950 border-gray-700 text-white placeholder:text-gray-600 resize-none"
+                  className="mt-1 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 resize-none"
                 />
               </div>
               <div>
-                <Label className="text-gray-300 text-xs">Membership Type</Label>
+                <Label className="text-gray-700 text-xs">Membership Type</Label>
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   {MEMBERSHIP_TYPES.map((t) => (
                     <button
@@ -389,7 +380,7 @@ export default function MemberRegister() {
                       className={`py-2.5 rounded-lg text-sm font-medium transition-all border ${
                         form.membership_type === t.value
                           ? t.activeBg
-                          : "bg-gray-950 text-gray-400 border-gray-700 hover:border-gray-600"
+                          : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
                       }`}
                     >
                       {t.label}
@@ -403,17 +394,17 @@ export default function MemberRegister() {
           {/* Step 2: Confirm */}
           {step === 2 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-400 mb-1">
+              <div className="flex items-center gap-2 text-green-700 mb-1">
                 <Shield className="h-4 w-4" />
                 <span className="text-sm font-medium">Review & Confirm</span>
               </div>
-              <div className="bg-gray-950 rounded-xl p-4 space-y-2 border border-gray-800">
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-200">
                 <Row label="Name" value={`${form.first_name} ${form.last_name}`} />
                 {form.gender && <Row label="Gender" value={form.gender} capitalize />}
                 {form.date_of_birth && <Row label="Date of Birth" value={form.date_of_birth} />}
                 {form.id_number && <Row label="ID / Passport" value={form.id_number} />}
                 {form.nationality && <Row label="Nationality" value={form.nationality} />}
-                <div className="border-t border-gray-800 my-2" />
+                <div className="border-t border-gray-200 my-2" />
                 <Row label="Phone" value={form.phone || "—"} />
                 {form.email && <Row label="Email" value={form.email} />}
                 {form.address && <Row label="Address" value={form.address} />}
@@ -424,9 +415,9 @@ export default function MemberRegister() {
                   type="checkbox"
                   checked={form.agreed_tos}
                   onChange={(e) => setForm((f) => ({ ...f, agreed_tos: e.target.checked }))}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-950 text-green-600 focus:ring-green-500"
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 bg-white text-green-600 focus:ring-green-500"
                 />
-                <span className="text-xs text-gray-400 leading-relaxed">
+                <span className="text-xs text-gray-600 leading-relaxed">
                   I confirm the information above is correct. I agree to the club's membership
                   terms and consent to my details being stored for membership purposes.
                 </span>
@@ -447,7 +438,7 @@ export default function MemberRegister() {
                 type="button"
                 variant="outline"
                 onClick={back}
-                className="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800"
+                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Back
@@ -482,7 +473,7 @@ export default function MemberRegister() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-700 mt-6">
+        <p className="text-center text-xs text-gray-400 mt-6">
           Powered by <span className="text-gray-500">Canna Life Co</span>
         </p>
       </div>
@@ -494,7 +485,7 @@ function Row({ label, value, capitalize }) {
   return (
     <div className="flex justify-between text-sm">
       <span className="text-gray-500">{label}</span>
-      <span className={`text-white ${capitalize ? "capitalize" : ""}`}>{value}</span>
+      <span className={`text-gray-900 ${capitalize ? "capitalize" : ""}`}>{value}</span>
     </div>
   );
 }
