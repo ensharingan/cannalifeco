@@ -4,7 +4,11 @@ const TYPE_LABELS = {
   percentage_discount: (p) => `${p.discount_value}% OFF`,
   fixed_discount: (p) => `${p.discount_value} OFF`,
   buy_x_get_y: (p) => `Buy ${p.buy_quantity} Get ${p.get_quantity} Free`,
-  bundle: (p) => `Bundle Deal — ${p.discount_value}% OFF`,
+  bundle: (p) => {
+    let items = p.bundle_items;
+    if (typeof items === "string") { try { items = JSON.parse(items); } catch (_e) { items = []; } }
+    return Array.isArray(items) && items.length > 0 ? "Bundle Deal" : `Bundle Deal — ${p.discount_value}% OFF`;
+  },
   free_item: (p) => `Free: ${p.free_product_name || "item"}`,
 };
 

@@ -1931,6 +1931,8 @@ export default function POS() {
                     if (discType === "weight_special") {
                       var wt = parseWeightTiers(p.weight_tiers);
                       label = wt.length ? wt.map(function (t) { return t.grams + "g R" + t.price; }).join(" / ") : "Weight Special";
+                    } else if (discType === "bundle" && Array.isArray(p.bundle_items) && p.bundle_items.length) {
+                      label = "Bundle deal";
                     } else if (p.discount_value) {
                       label = (discType === "fixed_discount" || discType === "fixed") ? "" + p.discount_value + " OFF" : p.discount_value + "% OFF";
                     } else {

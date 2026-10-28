@@ -8,6 +8,7 @@ export function CompanyProvider({ children }) {
   var [company, setCompany] = useState(null);
   var [loading, setLoading] = useState(true);
   var [stores, setStores] = useState([]);
+  var [role, setRole] = useState(null);
   var [activeStoreId, setActiveStoreId] = useState(null);
 
   // Once the first load has finished, `loading` must never go back to true.
@@ -53,6 +54,7 @@ export function CompanyProvider({ children }) {
           .maybeSingle();
         profileData = directRes.data;
       }
+      setRole(profileData && profileData.role ? profileData.role : null);
       var cid = null;
       if (profileData && profileData.company_id) {
         cid = profileData.company_id;
@@ -186,8 +188,9 @@ export function CompanyProvider({ children }) {
       stores,
       activeStoreId,
       setActiveStoreId,
+      role,
     };
-  }, [companyId, company, loading, refresh, stores, activeStoreId]);
+  }, [companyId, company, loading, refresh, stores, activeStoreId, role]);
 
   return (
     <CompanyContext.Provider value={value}>

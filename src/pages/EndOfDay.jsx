@@ -2,13 +2,15 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from '@/api/supabaseClient';
 import {
   Printer, Download, RefreshCw, Store as StoreIcon, AlertTriangle,
-  ShoppingCart, Banknote, Wallet, TrendingUp, Search
+  ShoppingCart, Banknote, Wallet, TrendingUp, Search, ChevronsDownUp, ChevronsUpDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "../lib/currency";
 import { cn } from "@/lib/utils";
 import { useCompany } from "../lib/CompanyContext";
+import StockReconciliation from "../components/eod/StockReconciliation";
+import { SectionsCtx, SectionHeader, useSection, useSectionsState } from "../components/eod/sections";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const todayStr = () => {
@@ -93,14 +95,14 @@ function Row({ label, value, bold, muted, negative }) {
   );
 }
 
-function Panel({ title, right, children, className }) {
+function Panel({ id, title, right, children, className }) {
+  const { isOpen } = useSection(id);
   return (
     <div className={cn("bg-card border border-border rounded-xl p-5", className)}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {right}
+      <div className={isOpen ? "mb-3" : ""}>
+        <SectionHeader id={id} title={title} right={right} />
       </div>
-      {children}
+      {isOpen && children}
     </div>
   );
 }
@@ -114,6 +116,8 @@ export default function EndOfDay() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [itemSearch, setItemSearch] = useState('');
+  const sections = useSectionsState();
+  const anySectionOpen = Object.values(sections.open).some(Boolean);
 
   // Store list for the picker. Single-store clubs simply get an empty list and
   // the picker stays hidden.
@@ -205,6 +209,7 @@ export default function EndOfDay() {
   }
 
   return (
+    <SectionsCtx.Provider value={sections}>
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
       <style>{PRINT_CSS}</style>
 
@@ -234,6 +239,11 @@ export default function EndOfDay() {
               {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           )}
+          <Button variant="outline" size="sm" onClick={() => sections.setAll(!anySectionOpen)}
+                  className="gap-2 h-9" title="Show or hide every section">
+            {anySectionOpen ? <ChevronsDownUp className="w-4 h-4" /> : <ChevronsUpDown className="w-4 h-4" />}
+            {anySectionOpen ? 'Collapse all' : 'Expand all'}
+          </Button>
           <Button variant="outline" size="sm" onClick={load} className="gap-2 h-9">
             <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} /> Refresh
           </Button>
@@ -305,9 +315,9 @@ export default function EndOfDay() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start no-print">
             {/* ── Sales summary ────────────────────────────────────────── */}
-            <Panel title="Sales summary">
+            <Panel id="summary" title="Sales summary">
               <div className="divide-y divide-border/50">
                 <Row label="Gross sales" value={money(totals.gross_sales)} />
                 <Row label="Discounts" value={'-' + money(totals.discounts)} negative={n(totals.discounts) > 0} />
@@ -328,7 +338,7 @@ export default function EndOfDay() {
             </Panel>
 
             {/* ── Cash up ──────────────────────────────────────────────── */}
-            <Panel title="Cash up">
+            <Panel id="cashup" title="Cash up">
               <div className="divide-y divide-border/50">
                 <Row label="Opening float" value={money(drawer.opening_float)} />
                 <Row label="Cash sales" value={money(drawer.cash_sales)} />
@@ -355,7 +365,7 @@ export default function EndOfDay() {
             </Panel>
 
             {/* ── Payment mix ──────────────────────────────────────────── */}
-            <Panel title="Payment methods">
+            <Panel id="payments" title="Payment methods">
               {payments.length === 0
                 ? <p className="text-sm text-muted-foreground py-6 text-center">No payments recorded</p>
                 : (
@@ -396,7 +406,7 @@ export default function EndOfDay() {
             </Panel>
 
             {/* ── Categories ───────────────────────────────────────────── */}
-            <Panel title="By category">
+            <Panel id="categories" title="By category">
               {categories.length === 0
                 ? <p className="text-sm text-muted-foreground py-6 text-center">Nothing sold</p>
                 : (
@@ -411,9 +421,14 @@ export default function EndOfDay() {
             </Panel>
           </div>
 
+          {/* ── Stock vs revenue (owners / managers only) ─────────────── */}
+          {!isCashierView && (
+            <StockReconciliation companyId={companyId} storeId={storeId} date={date} />
+          )}
+
           {/* ── Per store ─────────────────────────────────────────────── */}
           {!storeId && byStore.length > 1 && (
-            <Panel title="By store" className="no-print">
+            <Panel id="stores" title="By store" className="no-print">
               <div className="overflow-x-auto -mx-5 px-5">
                 <table className="w-full text-sm">
                   <thead>
@@ -452,7 +467,7 @@ export default function EndOfDay() {
           )}
 
           {/* ── Tills ─────────────────────────────────────────────────── */}
-          <Panel title="Tills" className="no-print">
+          <Panel id="tills" title="Tills" className="no-print">
             {sessions.length === 0
               ? <p className="text-sm text-muted-foreground py-6 text-center">No till sessions opened on this day</p>
               : (
@@ -505,6 +520,7 @@ export default function EndOfDay() {
 
           {/* ── Items sold ────────────────────────────────────────────── */}
           <Panel
+            id="items"
             title={`Items sold (${items.length})`}
             className="no-print"
             right={
@@ -584,7 +600,7 @@ export default function EndOfDay() {
           {(cashOuts.length > 0 || expenses.length > 0) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
               {cashOuts.length > 0 && (
-                <Panel title={`Cash paid out (${cashOuts.length})`}>
+                <Panel id="cashouts" title={`Cash paid out (${cashOuts.length})`}>
                   <div className="divide-y divide-border/50">
                     {cashOuts.map((c, i) => (
                       <Row key={i}
@@ -596,7 +612,7 @@ export default function EndOfDay() {
                 </Panel>
               )}
               {expenses.length > 0 && (
-                <Panel title={`Expenses (${expenses.length})`}>
+                <Panel id="expenses" title={`Expenses (${expenses.length})`}>
                   <div className="divide-y divide-border/50">
                     {expenses.map((e, i) => (
                       <Row key={i}
@@ -772,5 +788,6 @@ export default function EndOfDay() {
         </>
       )}
     </div>
+    </SectionsCtx.Provider>
   );
 }

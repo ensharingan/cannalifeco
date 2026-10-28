@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/api/supabaseClient";
 import {
   Star, Gift, Award, Search, ChevronUp, Plus, Edit, Trash2, Settings, Users, Sparkles, Zap,
-  TrendingUp, RotateCcw, Calendar,
+  TrendingUp, RotateCcw, Calendar, Crown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "../lib/currency";
 import { useCompany } from "../lib/CompanyContext";
 import { CURRENCIES } from "../lib/currency";
+import CustomerInsights from "../components/loyalty/CustomerInsights";
 
 // Static tier style config — only colours/icons, no thresholds
 const TIER_STYLES = [
@@ -493,7 +494,8 @@ function LoyaltySettingsPanel({ companyId, onSaved }) {
 
 /* ─── Main Loyalty Page ─── */
 export default function Loyalty() {
-  var { companyId } = useCompany();
+  var { companyId, role } = useCompany();
+  var canSeeInsights = role === "owner" || role === "manager" || role === "superadmin";
   var [members, setMembers] = useState([]);
   var [programs, setPrograms] = useState([]);
   var [loading, setLoading] = useState(true);
@@ -684,9 +686,10 @@ export default function Loyalty() {
         {[
           { key: "programs", label: "Programs",     icon: Settings, count: programs.length },
           { key: "members",  label: "Members",      icon: Users,    count: members.length },
+          { key: "insights", label: "Customer Insights", icon: Crown, count: null, hidden: !canSeeInsights },
           { key: "tiers",    label: "Tier Bonuses", icon: Zap,      count: null },
           { key: "settings", label: "Settings",     icon: Star,     count: null },
-        ].map(t => (
+        ].filter(t => !t.hidden).map(t => (
           <button key={t.key}
             className={cn("px-4 py-2 text-sm font-medium border-b-2 transition-colors", tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
             onClick={() => setTab(t.key)}
@@ -696,6 +699,9 @@ export default function Loyalty() {
           </button>
         ))}
       </div>
+
+      {/* ─── CUSTOMER INSIGHTS TAB ─── */}
+      {tab === "insights" && canSeeInsights && <CustomerInsights />}
 
       {/* ─── PROGRAMS TAB ─── */}
       {tab === "programs" && (
