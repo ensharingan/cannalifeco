@@ -83,8 +83,35 @@ function applyPromotions(cart, promotions) {
       var fixedDisc = Math.min(promo.discount_value || 0, matchingSubtotal);
       if (fixedDisc > 0) results.push({ promoId: promo.id, name: promo.name, discountAmount: fixedDisc, description: formatCurrency(promo.discount_value) + " off" });
     } else if (discType === "bundle") {
-      var bundleDisc = (matchingSubtotal * (promo.discount_value || 0)) / 100;
-      if (bundleDisc > 0) results.push({ promoId: promo.id, name: promo.name, discountAmount: bundleDisc, description: "Bundle " + promo.discount_value + "% off" });
+      // Per-item rules (promo.bundle_items) let a high-ticket item carry a
+      // smaller discount than the rest. An item with no rule uses the
+      // promotion's default % (discount_value), so older bundles are unchanged.
+      //   percent -> that % off the item        price -> fixed price per unit
+      //   none    -> no discount on the item
+      var bundleRules = {};
+      var rawRules = promo.bundle_items;
+      if (typeof rawRules === "string") { try { rawRules = JSON.parse(rawRules); } catch (_e) { rawRules = []; } }
+      (Array.isArray(rawRules) ? rawRules : []).forEach(function (r) { if (r && r.product_id) bundleRules[r.product_id] = r; });
+      var hasBundleRules = Object.keys(bundleRules).length > 0;
+      var bundleDisc = 0;
+      matchingItems.forEach(function (item) {
+        var gross = item.price * item.qty;
+        var rule = bundleRules[item.product_id];
+        var d;
+        if (!rule) {
+          d = (gross * (promo.discount_value || 0)) / 100;
+        } else if (rule.mode === "none") {
+          d = 0;
+        } else if (rule.mode === "price") {
+          d = Math.max(0, item.price - (Number(rule.value) || 0)) * item.qty;
+        } else if (rule.mode === "percent") {
+          d = (gross * Math.min(Math.max(Number(rule.value) || 0, 0), 100)) / 100;
+        } else {
+          d = (gross * (promo.discount_value || 0)) / 100;
+        }
+        bundleDisc += Math.min(Math.max(d, 0), gross);
+      });
+      if (bundleDisc > 0) results.push({ promoId: promo.id, name: promo.name, discountAmount: bundleDisc, description: hasBundleRules ? "Bundle deal" : "Bundle " + promo.discount_value + "% off" });
     } else if (discType === "buy_x_get_y") {
       var buyQty = promo.buy_quantity || 1;
       var getQty = promo.get_quantity || 1;

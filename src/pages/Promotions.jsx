@@ -55,6 +55,7 @@ const empty = {
   free_product_id: "", free_product_name: "",
   start_date: "", end_date: "", is_active: true, max_uses: 0,
   applicable_products: [], target_tier: "all", store_id: "",
+  bundle_items: [],
   weight_tiers: [],
   code: "", max_uses_per_member: 0,
 };
@@ -81,6 +82,37 @@ function parseApplicable(raw) {
   } catch (_) {
     return [];
   }
+}
+
+// Bundle rules: [{ product_id, mode: "percent" | "price" | "none", value }]
+// mode "default" (or no rule at all) means "use the promotion's default %".
+const BUNDLE_MODES = [
+  { value: "default", label: "Default %" },
+  { value: "percent", label: "% off" },
+  { value: "price",   label: "Set price (R)" },
+  { value: "none",    label: "No discount" },
+];
+
+function parseBundleItems(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+// What one unit costs once a bundle rule is applied.
+function bundleUnitPrice(price, rule, defaultPct) {
+  const p = Number(price) || 0;
+  const mode = rule?.mode || "default";
+  const v = Number(rule?.value) || 0;
+  if (mode === "none") return p;
+  if (mode === "percent") return Math.max(0, p * (1 - Math.min(Math.max(v, 0), 100) / 100));
+  if (mode === "price") return Math.min(p, Math.max(v, 0));
+  return Math.max(0, p * (1 - Math.min(Math.max(Number(defaultPct) || 0, 0), 100) / 100));
 }
 
 export default function Promotions() {
@@ -119,6 +151,7 @@ export default function Promotions() {
     setForm({
       ...p,
       applicable_products: parseApplicable(p.applicable_products),
+      bundle_items: parseBundleItems(p.bundle_items),
       weight_tiers: parseWeightTiers(p.weight_tiers),
       target_tier: p.target_tier || "all",
       store_id: p.store_id || "",
@@ -143,6 +176,24 @@ export default function Promotions() {
   };
   const removeTier = (idx) => {
     setForm(f => ({ ...f, weight_tiers: (f.weight_tiers || []).filter((_, i) => i !== idx) }));
+  };
+
+  // ── Bundle per-item rule helpers ──
+  const getRule = (pid) => (form.bundle_items || []).find(r => r.product_id === pid) || { product_id: pid, mode: "default", value: "" };
+  const setRule = (pid, patch) => {
+    setForm(f => {
+      const list = (f.bundle_items || []).slice();
+      const idx = list.findIndex(r => r.product_id === pid);
+      const next = { ...(idx >= 0 ? list[idx] : { product_id: pid, mode: "default", value: "" }), ...patch };
+      if (idx >= 0) list[idx] = next; else list.push(next);
+      return { ...f, bundle_items: list };
+    });
+  };
+  const applyRuleToAll = (mode, value) => {
+    setForm(f => ({
+      ...f,
+      bundle_items: (f.applicable_products || []).map(pid => ({ product_id: pid, mode, value })),
+    }));
   };
 
   const codeable = CODEABLE_TYPES.includes(form.promo_type);
@@ -179,6 +230,29 @@ export default function Promotions() {
       }
     }
 
+    // Keep only rules for products that are still in the bundle, and that
+    // actually change the price.
+    let cleanBundle = [];
+    if (form.promo_type === "bundle") {
+      const chosenIds = form.applicable_products || [];
+      cleanBundle = (form.bundle_items || [])
+        .filter(r => chosenIds.includes(r.product_id) && r.mode && r.mode !== "default")
+        .map(r => ({ product_id: r.product_id, mode: r.mode, value: r.mode === "none" ? 0 : Number(r.value) || 0 }));
+      for (const r of cleanBundle) {
+        const pName = products.find(p => p.id === r.product_id)?.name || "an item";
+        if (r.mode === "percent" && (r.value <= 0 || r.value > 100)) {
+          toast.error(`${pName}: enter a % between 1 and 100`); return;
+        }
+        if (r.mode === "price" && r.value <= 0) {
+          toast.error(`${pName}: enter the bundle price`); return;
+        }
+      }
+      if (cleanBundle.length && !chosenIds.length) {
+        toast.error("Pick the products in this bundle");
+        return;
+      }
+    }
+
     // A code only makes sense on the two subtotal-based types. Anything else
     // is dropped rather than saved as a code that would never redeem.
     const cleanCode = codeable ? String(form.code || "").trim().toUpperCase() : "";
@@ -207,6 +281,7 @@ export default function Promotions() {
         target_tier: form.target_tier || "all",
         store_id: form.store_id || null,
         weight_tiers: form.promo_type === "weight_special" ? cleanTiers : [],
+        bundle_items: form.promo_type === "bundle" ? cleanBundle : [],
         code: cleanCode || null,
         max_uses_per_member: codeable ? (Number(form.max_uses_per_member) || 0) : 0,
       };
@@ -251,7 +326,11 @@ export default function Promotions() {
     if (p.promo_type === "percentage_discount") return `${p.discount_value}% off`;
     if (p.promo_type === "fixed_discount") return `${p.discount_value} off`;
     if (p.promo_type === "buy_x_get_y") return `Buy ${p.buy_quantity} Get ${p.get_quantity} free`;
-    if (p.promo_type === "bundle") return `Bundle: ${p.discount_value}% off`;
+    if (p.promo_type === "bundle") {
+      const custom = parseBundleItems(p.bundle_items).length;
+      if (custom > 0) return `Bundle: ${custom} item${custom === 1 ? "" : "s"} with own price` + (Number(p.discount_value) > 0 ? ` · others ${p.discount_value}% off` : "");
+      return `Bundle: ${p.discount_value}% off`;
+    }
     if (p.promo_type === "free_item") return `Free: ${p.free_product_name || "item"}`;
     if (p.promo_type === "weight_special") {
       const tiers = parseWeightTiers(p.weight_tiers);
@@ -411,7 +490,7 @@ export default function Promotions() {
 
       {/* Form dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl w-[95vw] max-h-[92vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editPromo ? "Edit Promotion" : "New Promotion"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
@@ -458,7 +537,11 @@ export default function Promotions() {
 
             {["percentage_discount", "fixed_discount", "bundle"].includes(form.promo_type) && (
               <div>
-                <Label>{form.promo_type === "percentage_discount" ? "Discount %" : "Discount Amount"}</Label>
+                <Label>
+                  {form.promo_type === "percentage_discount" ? "Discount %"
+                    : form.promo_type === "bundle" ? "Default discount % (items without their own price below)"
+                    : "Discount Amount"}
+                </Label>
                 <Input type="number" step="0.01" value={form.discount_value} onChange={e => setForm(f => ({ ...f, discount_value: e.target.value }))} />
               </div>
             )}
@@ -577,7 +660,7 @@ export default function Promotions() {
                   A coded promotion comes off the whole sale total, so this product list is ignored while a code is set.
                 </p>
               ) : null}
-              <div className="mt-2 max-h-40 overflow-y-auto border rounded-lg divide-y divide-border">
+              <div className="mt-2 max-h-72 overflow-y-auto border rounded-lg divide-y divide-border">
                 {products.map(p => (
                   <label key={p.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/30 cursor-pointer text-sm">
                     <input type="checkbox" checked={(form.applicable_products || []).includes(p.id)} onChange={() => toggleProduct(p.id)} className="rounded" />
@@ -587,6 +670,86 @@ export default function Promotions() {
                 ))}
               </div>
             </div>
+
+            {/* ── Bundle: price each item on its own ── */}
+            {form.promo_type === "bundle" && (() => {
+              const chosen = form.applicable_products || [];
+              const rows = chosen.map(id => products.find(p => p.id === id)).filter(Boolean);
+              const defPct = Number(form.discount_value) || 0;
+              const totalNormal = rows.reduce((s, p) => s + (Number(p.price) || 0), 0);
+              const totalBundle = rows.reduce((s, p) => s + bundleUnitPrice(p.price, getRule(p.id), defPct), 0);
+              return (
+                <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-3 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <Label className="text-orange-700">Price each item in the bundle</Label>
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
+                        onClick={() => applyRuleToAll("default", "")} disabled={!rows.length}>
+                        Reset all to default %
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Pick the products above, then set a % off or a fixed bundle price for each one.
+                    A high-ticket item can have a small discount (or none) while the rest get more.
+                    Items left on "Default %" use the percentage at the top.
+                  </p>
+
+                  {rows.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-3">
+                      No products picked yet — select them in the list below.
+                    </p>
+                  ) : (
+                    <div className="border rounded-lg bg-background overflow-hidden">
+                      <div className="hidden sm:grid grid-cols-[1fr_90px_140px_100px_90px] gap-2 px-3 py-2 text-[10px] uppercase tracking-wide text-muted-foreground border-b">
+                        <span>Item</span><span className="text-right">Normal</span><span>Discount</span><span>Value</span><span className="text-right">Bundle price</span>
+                      </div>
+                      <div className="divide-y divide-border max-h-72 overflow-y-auto">
+                        {rows.map(p => {
+                          const rule = getRule(p.id);
+                          const mode = rule.mode || "default";
+                          const unit = bundleUnitPrice(p.price, rule, defPct);
+                          const normal = Number(p.price) || 0;
+                          const overPrice = mode === "price" && Number(rule.value) > normal;
+                          return (
+                            <div key={p.id} className="grid grid-cols-2 sm:grid-cols-[1fr_90px_140px_100px_90px] gap-2 items-center px-3 py-2 text-sm">
+                              <span className="col-span-2 sm:col-span-1 truncate" title={p.name}>{p.name}</span>
+                              <span className="text-right tabular-nums text-muted-foreground">R{normal.toFixed(2)}</span>
+                              <select
+                                value={mode}
+                                onChange={e => setRule(p.id, { mode: e.target.value, value: e.target.value === "default" || e.target.value === "none" ? "" : rule.value })}
+                                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                              >
+                                {BUNDLE_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                              </select>
+                              {mode === "percent" || mode === "price" ? (
+                                <Input type="number" min="0" step="0.01" className="h-9"
+                                  value={rule.value} placeholder={mode === "percent" ? "%" : "R"}
+                                  onChange={e => setRule(p.id, { value: e.target.value })} />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">{mode === "default" ? `${defPct}%` : "—"}</span>
+                              )}
+                              <span className={cn("text-right tabular-nums font-semibold", overPrice && "text-red-500")}
+                                title={overPrice ? "Higher than the normal price — no discount will apply" : undefined}>
+                                R{unit.toFixed(2)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2 text-sm border-t bg-muted/30 font-semibold">
+                        <span>One of each</span>
+                        <span className="tabular-nums">
+                          <span className="text-muted-foreground line-through font-normal mr-2">R{totalNormal.toFixed(2)}</span>
+                          R{totalBundle.toFixed(2)}
+                          <span className="text-green-600 font-normal ml-2">saves R{(totalNormal - totalBundle).toFixed(2)}</span>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <Button onClick={handleSave} disabled={isSaving} className="w-full">
               {isSaving ? "Saving..." : editPromo ? "Update Promotion" : "Create Promotion"}
