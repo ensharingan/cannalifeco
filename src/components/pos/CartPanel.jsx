@@ -730,7 +730,8 @@ export default function CartPanel({
     && grandTotal <= 0.005
   );
 
-  var linkOk = paymentMethod !== "payment_link" || linkPaid;
+  // A link is optional: only insist on "payment received" once a link is actually shown.
+  var linkOk = paymentMethod !== "payment_link" || !linkValid || linkPaid;
   var canCheckout = cart.length > 0 && paymentMethod && !isProcessing && cashOk && splitOk && voucherOk && linkOk;
 
   var handleQtyChange = function (key, value) {

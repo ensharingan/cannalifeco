@@ -1507,6 +1507,7 @@ export default function POS() {
       try { await loadPosData(); } catch (_) {}
 
       var currentStore = (ctxStores || []).find(function (s) { return s.id === saleStoreId; });
+      if (!voucherMode) setPaymentMethod("cash");
       setReceipt({
         kind: voucherMode ? "stock_collection" : "sale",
         order: { ...order, created_at: order.created_at || new Date().toISOString(), payment_details: paymentDetails },
