@@ -108,7 +108,9 @@ function Panel({ id, title, right, children, className }) {
 }
 
 export default function EndOfDay() {
-  const { companyId } = useCompany();
+  const { companyId, role } = useCompany();
+  // Stock reconciliation is for owners / managers; tills (cashier, staff) don't see it.
+  const isCashierView = !!role && !['owner', 'admin', 'manager', 'superadmin'].includes(role);
   const [date, setDate] = useState(todayStr());
   const [storeId, setStoreId] = useState('');       // '' = all stores
   const [stores, setStores] = useState([]);
