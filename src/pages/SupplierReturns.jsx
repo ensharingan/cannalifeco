@@ -19,7 +19,10 @@ const statusColors = {
   rejected:     "bg-red-500/10 text-red-600 border-red-200",
 };
 
-const reasons = ["damaged", "expired", "incorrect_order", "overstock", "quality_issue", "other"];
+const parseItems = (v) => {
+  try { let x = v; if (typeof x === "string") x = JSON.parse(x); if (typeof x === "string") x = JSON.parse(x); return Array.isArray(x) ? x : []; } catch { return []; }
+};
+const reasons = ["damaged", "expired", "short_delivery", "incorrect_order", "overstock", "quality_issue", "other"];
 const statuses = ["draft", "sent", "acknowledged", "credited", "rejected"];
 
 function generateRFC() {
@@ -372,6 +375,9 @@ export default function SupplierReturns() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">Supplier:</span><br /><span className="font-medium">{viewReturn.supplier_name}</span></div>
                 <div><span className="text-muted-foreground">Reason:</span><br /><span className="capitalize">{viewReturn.reason?.replace(/_/g, " ")}</span></div>
+                {viewReturn.reason === "short_delivery" && (
+                  <div><span className="text-muted-foreground">Supplier to:</span><br /><span>{viewReturn.resolution === "refund" ? "Refund" : "Issue a credit note"}</span></div>
+                )}
                 <div><span className="text-muted-foreground">Date:</span><br />{new Date(viewReturn.created_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                 <div>
                   <span className="text-muted-foreground">Status:</span><br />
@@ -384,7 +390,7 @@ export default function SupplierReturns() {
                 <div>
                   <p className="text-sm font-semibold mb-2">Items</p>
                   <div className="space-y-1">
-                    {JSON.parse(viewReturn.items).map((item, i) => (
+                    {parseItems(viewReturn.items).map((item, i) => (
                       <div key={i} className="flex justify-between text-sm py-1 border-b border-border/50">
                         <span>{item.product_name} × {item.quantity}</span>
                         <span className="font-medium">{formatCurrency(item.quantity * item.unit_cost)}</span>

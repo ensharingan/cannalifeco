@@ -75,7 +75,7 @@ export default function SupplierPayments() {
   const emptySupplierForm = { name: "", contact_name: "", phone: "", email: "", address: "", notes: "", vat_number: "", registration_number: "" };
   const [supplierForm, setSupplierForm] = useState(emptySupplierForm);
 
-  const emptyOrderForm = { supplier_id: "", store_id: "", order_number: "", invoice_total: "", notes: "", items: [], payment_type: "terms", order_date: today(), update_stock: true };
+  const emptyOrderForm = { supplier_id: "", store_id: "", order_number: "", invoice_total: "", notes: "", items: [], payment_type: "terms", order_date: today(), update_stock: true, short_resolution: "credit" };
   const [orderForm, setOrderForm] = useState(emptyOrderForm);
   const [itemForm, setItemForm] = useState({ product_name: "", quantity: "", cost_price: "" });
 
@@ -143,7 +143,7 @@ export default function SupplierPayments() {
         const skippedNames = [];
 
         for (const item of lineItems) {
-          const qty = Number(item.quantity) || 0;
+          const qty = Number(item.received_quantity ?? item.quantity) || 0;
           if (!item.product_id || qty <= 0) {
             if (item.product_name) skippedNames.push(item.product_name);
             continue;
@@ -368,6 +368,7 @@ export default function SupplierPayments() {
       quantity: Number(itemForm.quantity),
       cost_price: Number(itemForm.cost_price),
       line_total: Number(itemForm.quantity) * Number(itemForm.cost_price),
+        received_quantity: Number(itemForm.quantity),
     };
 
     if (!match) {
@@ -380,6 +381,15 @@ export default function SupplierPayments() {
       return { ...prev, items, invoice_total: calcTotal.toFixed(2) };
     });
     setItemForm({ product_name: "", quantity: "", cost_price: "" });
+  };
+
+  const setReceived = (idx, val) => {
+    setOrderForm(prev => ({
+      ...prev,
+      items: prev.items.map((it, i) => i === idx
+        ? { ...it, received_quantity: val === "" ? "" : Math.max(0, Math.min(Number(val), it.quantity)) }
+        : it),
+    }));
   };
 
   const removeItem = (idx) => {
@@ -408,6 +418,7 @@ export default function SupplierPayments() {
         quantity: Number(itemForm.quantity),
         cost_price: Number(itemForm.cost_price),
         line_total: Number(itemForm.quantity) * Number(itemForm.cost_price),
+        received_quantity: Number(itemForm.quantity),
       }];
     }
 
@@ -434,7 +445,7 @@ export default function SupplierPayments() {
         order_number: orderForm.order_number || null,
         invoice_total: invoiceTotal,
         calculated_total: calcTotal,
-        items: JSON.stringify(items),
+        items: JSON.stringify(items.map(i => ({ ...i, received_quantity: i.received_quantity === "" ? 0 : Number(i.received_quantity ?? i.quantity) }))),
         notes: orderForm.notes || null,
         payment_type: orderForm.payment_type,
         status: isConsignment ? "consignment" : isCash ? "paid" : "unpaid",
@@ -471,6 +482,16 @@ export default function SupplierPayments() {
       // Push the received quantities into store inventory
       if (created?.id && orderForm.update_stock && items.length > 0) {
         await applyStockToInventory(created, { silent: true });
+      }
+
+      // Received less than the invoice: raise an RFC to this supplier for the shortfall
+      const shortItems = items.filter(i => Number(i.received_quantity === "" ? 0 : (i.received_quantity ?? i.quantity)) < i.quantity);
+      if (created?.id && shortItems.length > 0) {
+        const { data: rfc, error: rfcErr } = await supabase.rpc("po_raise_short_delivery_rfc", {
+          p_po_id: created.id, p_resolution: orderForm.short_resolution,
+        });
+        if (rfcErr) toast.error("Order saved, but the short-delivery RFC failed: " + rfcErr.message);
+        else if (rfc?.rfc_number) toast.success(`Short delivery: ${rfc.rfc_number} raised on the RFC tab (${formatCurrency(rfc.credit_total || 0)})`);
       }
 
       setShowNewOrder(false);
@@ -1163,6 +1184,12 @@ export default function SupplierPayments() {
                         {item.quantity}× {item.product_name} @ {formatCurrency(item.cost_price)}
                       </span>
                       <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          Received
+                          <input type="number" min="0" max={item.quantity} value={item.received_quantity ?? item.quantity}
+                            onChange={e => setReceived(idx, e.target.value)}
+                            className={`w-14 h-6 rounded border bg-background px-1 text-xs ${Number(item.received_quantity ?? item.quantity) < item.quantity ? "border-amber-500 text-amber-400" : "border-border"}`} />
+                        </label>
                         <span className="font-semibold">{formatCurrency(item.line_total)}</span>
                         <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300">×</button>
                       </div>
@@ -1172,6 +1199,22 @@ export default function SupplierPayments() {
                     <span>Calculated Total</span>
                     <span>{formatCurrency(orderForm.items.reduce((s, i) => s + i.line_total, 0))}</span>
                   </div>
+                  {orderForm.items.some(i => Number(i.received_quantity ?? i.quantity) < i.quantity) && (
+                    <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2 mt-1 space-y-1.5">
+                      <p className="text-[11px] text-amber-300">
+                        Short delivery: only the received quantities go into stock, and an RFC is raised to this supplier for{" "}
+                        {formatCurrency(orderForm.items.reduce((s, i) => s + Math.max(0, i.quantity - Number(i.received_quantity ?? i.quantity)) * i.cost_price, 0))}.
+                      </p>
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span>Supplier will</span>
+                        <select value={orderForm.short_resolution} onChange={e => setOrderForm(p => ({ ...p, short_resolution: e.target.value }))}
+                          className="h-6 rounded border border-border bg-background px-1 text-xs">
+                          <option value="credit">Issue a credit note</option>
+                          <option value="refund">Refund</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                   {orderForm.items.some(i => !i.product_id) && (
                     <p className="text-[11px] text-amber-400 pt-1">
                       ⚠ Items marked with a warning don't match an existing product and will be skipped when updating stock.
