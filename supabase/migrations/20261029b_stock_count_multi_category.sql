@@ -62,3 +62,7 @@ begin
   update stock_counts set items_total = v_n, updated_at = now() where id = v_id;
   return v_id;
 end; $function$;
+
+-- Recreating the function resets its grants; keep it signed-in only (POPIA rule 3).
+revoke all on function public.stock_count_create(uuid, text, text, text, boolean, text[]) from public, anon;
+grant execute on function public.stock_count_create(uuid, text, text, text, boolean, text[]) to authenticated, service_role;
