@@ -46,14 +46,14 @@ export default function StockCounts() {
 
   var [showNew, setShowNew] = useState(false);
   var [creating, setCreating] = useState(false);
-  var [form, setForm] = useState({ store_id: "", scope: "all", category: "", blind: true, name: "" });
+  var [form, setForm] = useState({ store_id: "", scope: "all", categories: [], blind: true, name: "" });
 
   var isManager = profile && MANAGER_ROLES.indexOf(profile.role) !== -1;
 
   var loadCounts = useCallback(async function (who) {
     if (!who) return;
     var res = await supabase.from("stock_counts")
-      .select("id, name, status, store_id, items_total, blind, scope, category, started_at, updated_at, completed_at")
+      .select("id, name, status, store_id, items_total, blind, scope, category, categories, started_at, updated_at, completed_at")
       .eq("company_id", who.company_id)
       .order("updated_at", { ascending: false })
       .limit(100);
@@ -138,7 +138,7 @@ export default function StockCounts() {
         p_store_id: form.store_id,
         p_name: form.name || null,
         p_scope: form.scope,
-        p_category: form.scope === "category" ? (form.category || null) : null,
+        p_categories: form.scope === "category" && form.categories.length ? form.categories : null,
         p_blind: isManager ? form.blind : true,
       });
       if (res.error) throw res.error;
@@ -228,7 +228,7 @@ export default function StockCounts() {
                     <StoreIcon className="w-3 h-3" /> {storeName(c.store_id)}
                   </span>
                   <span>{c.items_total} items</span>
-                  {c.scope === "category" && <span>Category: {c.category}</span>}
+                  {c.scope === "category" && <span>{(c.categories && c.categories.length > 1) ? "Categories" : "Category"}: {c.categories && c.categories.length ? c.categories.join(", ") : c.category}</span>}
                   <span>{timeAgo(c.updated_at)}</span>
                 </div>
               </div>
@@ -265,22 +265,34 @@ export default function StockCounts() {
                 <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Everything in the store</SelectItem>
-                  <SelectItem value="category">One category</SelectItem>
+                  <SelectItem value="category">Selected categories</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {form.scope === "category" && (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Category</label>
-                <Select value={form.category} onValueChange={function (v) { setForm({ ...form, category: v }); }}>
-                  <SelectTrigger className="h-10"><SelectValue placeholder="Pick a category" /></SelectTrigger>
-                  <SelectContent>
-                    {categories.map(function (c) {
-                      return <SelectItem key={c} value={c}>{c}</SelectItem>;
-                    })}
-                  </SelectContent>
-                </Select>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Categories{form.categories.length ? " (" + form.categories.length + " selected)" : ""}
+                </label>
+                <div className="max-h-44 overflow-y-auto rounded-xl border border-border p-1.5 space-y-0.5">
+                  {categories.map(function (c) {
+                    var on = form.categories.indexOf(c) !== -1;
+                    return (
+                      <button key={c} type="button"
+                        onClick={function () {
+                          setForm({ ...form, categories: on ? form.categories.filter(function (x) { return x !== c; }) : form.categories.concat([c]) });
+                        }}
+                        className={cn("flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                          on ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/60")}>
+                        <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
+                          on ? "border-primary bg-primary text-primary-foreground" : "border-border")}>{on ? "\u2713" : ""}</span>
+                        {c}
+                      </button>
+                    );
+                  })}
+                  {!categories.length && <p className="p-2 text-xs text-muted-foreground">No categories found</p>}
+                </div>
               </div>
             )}
 
@@ -314,7 +326,7 @@ export default function StockCounts() {
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={function () { setShowNew(false); }}>Cancel</Button>
               <Button className="flex-1 font-semibold"
-                disabled={creating || !form.store_id || (form.scope === "category" && !form.category)}
+                disabled={creating || !form.store_id || (form.scope === "category" && !form.categories.length)}
                 onClick={createCount}>
                 {creating ? "Starting..." : "Start counting"}
               </Button>

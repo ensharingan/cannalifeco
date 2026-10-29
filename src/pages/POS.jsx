@@ -218,6 +218,8 @@ function timeAgoFrom(ts) {
   } catch (_) { return ""; }
 }
 
+var WALKIN_CUSTOMER = { id: null, is_walkin: true, first_name: "Walk-in", last_name: "Customer", store_credit: 0 };
+
 function getMembershipExpiry(member) {
   if (!member || !member.expiry_date) return null;
   var expiry = new Date(member.expiry_date);
@@ -1322,8 +1324,8 @@ export default function POS() {
       var promoCode = checkoutData ? checkoutData.promoCode : null;
       var isWalkIn = !selectedMember || selectedMember.is_walkin;
 
-      if (isWalkIn) {
-        toast.error("Select a member before charging. Every sale must be linked to a member.");
+      if (isWalkIn && finalPaymentMethod === "unpaid") {
+        toast.error("Walk-in sales must be paid in full. Select a member to leave a balance.");
         setIsProcessing(false);
         return;
       }
@@ -2407,7 +2409,10 @@ export default function POS() {
                 <UserCheck className="w-5 h-5 text-primary" /> Who is this sale for?
               </DialogTitle>
             </DialogHeader>
-            <Input placeholder="Search by name, ID, email, or phone..." value={memberSearch} onChange={function (e) { setMemberSearch(e.target.value); }} autoFocus />
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={function () { handleSelectMember(WALKIN_CUSTOMER); }}>
+              <UserCheck className="w-4 h-4" /> Walk-in Customer (no member)
+            </Button>
+            <Input placeholder="Search by name, ID, email, or phone..." value={memberSearch} onChange={function (e) { setMemberSearch(e.target.value); }} />
             <div className="max-h-72 overflow-y-auto space-y-1">
               {memberSearching && (<div className="flex items-center justify-center py-6"><div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>)}
               {!memberSearching && searchedMembers.map(function (m) { return renderMemberRow(m, handleSelectMember); })}
@@ -2419,6 +2424,9 @@ export default function POS() {
         <Dialog open={showMemberDialog} onOpenChange={setShowMemberDialog}>
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>Select Member</DialogTitle></DialogHeader>
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={function () { handleSelectMember(WALKIN_CUSTOMER); }}>
+              <UserCheck className="w-4 h-4" /> Walk-in Customer (no member)
+            </Button>
             <Input placeholder="Search by name, ID, email, or phone..." value={memberSearch} onChange={function (e) { setMemberSearch(e.target.value); }} autoFocus />
             <div className="max-h-80 overflow-y-auto space-y-1">
               {memberSearching && (<div className="flex items-center justify-center py-6"><div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>)}

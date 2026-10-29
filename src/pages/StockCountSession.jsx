@@ -62,7 +62,7 @@ export default function StockCountSession() {
     (async function () {
       try {
         var res = await supabase.from("stock_counts")
-          .select("id, name, status, store_id, blind, scope, category, items_total, started_at")
+          .select("id, name, status, store_id, blind, scope, category, categories, items_total, started_at")
           .eq("id", id).single();
         if (res.error) throw res.error;
         if (cancelled) return;
@@ -391,7 +391,7 @@ export default function StockCountSession() {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">{header.name}</h1>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
               <span>{summary.counted || 0} of {summary.total || 0} counted</span>
-              {header.scope === "category" && <span>Category: {header.category}</span>}
+              {header.scope === "category" && <span>{(header.categories && header.categories.length > 1) ? "Categories" : "Category"}: {header.categories && header.categories.length ? header.categories.join(", ") : header.category}</span>}
               {masked && (
                 <span className="inline-flex items-center gap-1"><EyeOff className="w-3 h-3" /> Blind count</span>
               )}
