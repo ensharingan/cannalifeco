@@ -4,6 +4,9 @@ on:
   push:
     branches: [android-apk]
 
+permissions:
+  contents: write
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -44,3 +47,12 @@ jobs:
         with:
           name: cannalife-pos-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish APK as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk Canna_Life_Co_POS.apk
+          gh release delete apk-latest --cleanup-tag -y || true
+          gh release create apk-latest Canna_Life_Co_POS.apk --target "$GITHUB_SHA" --prerelease \
+            --title "Canna Life Co POS (Android APK)" \
+            --notes "Sideloadable debug-signed APK built from commit $GITHUB_SHA. Uninstall any older version first."
