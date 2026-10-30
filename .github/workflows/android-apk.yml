@@ -17,8 +17,9 @@ jobs:
       - name: Build web app
         run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://runqrxtdxaofnjziegyr.supabase.co' }}
+          # Public anon key (role=anon), same one the live site ships. Secret overrides it if set.
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bnFyeHRkeGFvZm5qemllZ3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MzE3MTUsImV4cCI6MjEwODAwNzcxNX0.WdEajoPnoxMXZNvmMrJ-w7bGUFBKVQji2cLcE2GNPZI' }}
       - run: npx cap sync android
       - name: Build APK (debug-signed, sideloadable)
         working-directory: android
