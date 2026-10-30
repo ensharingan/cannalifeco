@@ -1,0 +1,8 @@
+{
+  "appId": "za.co.cannalife.pos",
+  "appName": "Canna Life Co POS",
+  "webDir": "dist",
+  "backgroundColor": "#0a0a0a",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false }
+}
