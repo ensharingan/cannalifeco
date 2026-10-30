@@ -13,6 +13,9 @@ jobs:
         with: { node-version: 22, cache: npm }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-36 build-tools;36.0.0'
       - run: npm ci
       - name: Build web app
         run: npm run build
@@ -23,7 +26,20 @@ jobs:
       - run: npx cap sync android
       - name: Build APK (debug-signed, sideloadable)
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          chmod +x gradlew
+          set +e
+          ./gradlew assembleDebug --no-daemon --stacktrace > ../gradle.log 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            echo "::error title=Gradle failed::$(grep -E 'What went wrong|error:|Could not|Execution failed|not found|licen' -A3 ../gradle.log | head -25 | tr '\n' ' ' | cut -c1-900)"
+          fi
+          exit $code
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: gradle-log
+          path: gradle.log
       - uses: actions/upload-artifact@v4
         with:
           name: cannalife-pos-apk
