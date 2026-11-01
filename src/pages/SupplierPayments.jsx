@@ -13,7 +13,7 @@ import { formatCurrency } from "../lib/currency";
 import {
   DollarSign, Plus, Search, Eye, CreditCard, Truck, AlertTriangle,
   CheckCircle, Clock, Receipt, Wallet, Trash2, Edit, Phone, Mail, Users, Package, XCircle,
-  Warehouse, PackageCheck
+  Warehouse, PackageCheck, Copy
 } from "lucide-react";
 
 const STATUS_STYLES = {
@@ -66,6 +66,11 @@ export default function SupplierPayments() {
   const [editOrder, setEditOrder] = useState(null);
   const [editOrderForm, setEditOrderForm] = useState({});
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  // Copy PO to other stores state
+  const [copyOrder, setCopyOrder] = useState(null);
+  const [copyStoreIds, setCopyStoreIds] = useState([]);
+  const [isCopying, setIsCopying] = useState(false);
 
   // Write-off state
   const [writeOffOrder, setWriteOffOrder] = useState(null);
@@ -221,6 +226,57 @@ export default function SupplierPayments() {
       return null;
     } finally {
       setApplyingStockId(null);
+    }
+  };
+
+  // ── Copy a PO to other stores ──
+  // Creates one new PO per selected store with the same supplier + line items.
+  // Safe by design: stock is NOT applied and no payment is recorded — each store
+  // adds its stock via "Add Received Stock to Inventory" when the goods arrive.
+  // Copies are never marked paid (consignment stays consignment, everything else
+  // starts unpaid), so nothing is double-counted in what you owe the supplier.
+  const openCopyOrder = (order) => {
+    setCopyOrder(order);
+    setCopyStoreIds([]);
+  };
+
+  const toggleCopyStore = (id) => {
+    setCopyStoreIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const saveCopyOrder = async () => {
+    if (!copyOrder || copyStoreIds.length === 0) { toast.error("Select at least one store"); return; }
+    setIsCopying(true);
+    try {
+      const srcItems = parseItems(copyOrder.items).map(i => ({ ...i, received_quantity: Number(i.quantity) || 0 }));
+      const userId = (await supabase.auth.getUser()).data.user?.id || null;
+      const isConsignment = copyOrder.status === "consignment" || copyOrder.payment_type === "consignment";
+      const targets = stores.filter(s => copyStoreIds.includes(s.id));
+      const rows = targets.map(s => ({
+        company_id: companyId,
+        supplier_id: copyOrder.supplier_id,
+        store_id: s.id,
+        order_number: copyOrder.order_number ? `${copyOrder.order_number}-${s.code || s.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase()}` : null,
+        invoice_total: copyOrder.invoice_total,
+        calculated_total: copyOrder.calculated_total,
+        items: JSON.stringify(srcItems),
+        notes: [copyOrder.notes, `[Copied from PO ${copyOrder.order_number || copyOrder.id.slice(0, 8)}]`].filter(Boolean).join("\n"),
+        payment_type: isConsignment ? "consignment" : (copyOrder.payment_type === "cash" ? "terms" : (copyOrder.payment_type || "terms")),
+        status: isConsignment ? "consignment" : "unpaid",
+        amount_paid: 0,
+        received_at: new Date().toISOString(),
+        created_by: userId,
+      }));
+      const { error } = await supabase.from("supplier_purchase_orders").insert(rows);
+      if (error) throw error;
+      toast.success(`PO copied to ${rows.length} store${rows.length > 1 ? "s" : ""} — add stock at each store when it arrives`);
+      setCopyOrder(null);
+      setCopyStoreIds([]);
+      load();
+    } catch (err) {
+      toast.error(err.message || "Failed to copy order");
+    } finally {
+      setIsCopying(false);
     }
   };
 
@@ -1307,6 +1363,45 @@ export default function SupplierPayments() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Copy PO to Other Stores Dialog ── */}
+      <Dialog open={!!copyOrder} onOpenChange={(open) => { if (!open) { setCopyOrder(null); setCopyStoreIds([]); } }}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Copy PO to Other Stores</DialogTitle></DialogHeader>
+          {copyOrder && (() => {
+            const srcItems = parseItems(copyOrder.items);
+            const targets = stores.filter(s => s.id !== copyOrder.store_id);
+            return (
+              <div className="space-y-4">
+                <div className="rounded-lg bg-muted/30 p-3 text-sm">
+                  <p className="font-medium">{copyOrder.suppliers?.name} · {copyOrder.order_number || copyOrder.id.slice(0, 8)}</p>
+                  <p className="text-xs text-muted-foreground">{srcItems.length} line item{srcItems.length !== 1 ? "s" : ""} · {formatCurrency(copyOrder.invoice_total)}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Copy to</Label>
+                  <div className="space-y-1 mt-2">
+                    {targets.map(s => (
+                      <label key={s.id} className="flex items-center gap-3 text-sm bg-muted/30 rounded px-3 py-2 cursor-pointer">
+                        <input type="checkbox" checked={copyStoreIds.includes(s.id)} onChange={() => toggleCopyStore(s.id)} />
+                        <span>{s.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={() => setCopyStoreIds(copyStoreIds.length === targets.length ? [] : targets.map(s => s.id))}>
+                    {copyStoreIds.length === targets.length ? "Clear all" : "Select all"}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Each store gets its own PO with the same supplier and items. Stock is not added and no payment is recorded — add stock at each store when the goods arrive. Copies start as unpaid (consignment stays consignment). You can edit each store's PO afterwards.
+                </p>
+                <Button onClick={saveCopyOrder} disabled={isCopying || copyStoreIds.length === 0} className="w-full">
+                  {isCopying ? "Copying..." : `Copy to ${copyStoreIds.length} store${copyStoreIds.length !== 1 ? "s" : ""}`}
+                </Button>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* ── Order Detail Dialog ── */}
       <Dialog open={!!showDetail} onOpenChange={() => setShowDetail(null)}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -1379,6 +1474,13 @@ export default function SupplierPayments() {
                   <p className="text-[11px] text-muted-foreground text-center">
                     Stock added to inventory on {new Date(o.stock_applied_at).toLocaleString("en-ZA")}
                   </p>
+                )}
+
+                {/* Copy this PO to other stores */}
+                {items.length > 0 && o.status !== "cancelled" && stores.filter(s => s.id !== o.store_id).length > 0 && (
+                  <Button onClick={() => openCopyOrder(o)} className="w-full gap-2" variant="outline">
+                    <Copy className="w-4 h-4" /> Copy PO to Other Stores
+                  </Button>
                 )}
 
                 <div>
