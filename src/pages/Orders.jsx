@@ -433,6 +433,7 @@ export default function Orders() {
   var [reprintReceipt, setReprintReceipt] = useState(null);
   var [statusFilter, setStatusFilter] = useState("all");
   var [preordersOnly, setPreordersOnly] = useState(false);
+  var [changingPayment, setChangingPayment] = useState(false);
   var [showRefund, setShowRefund] = useState(false);
   var [refundOrder, setRefundOrder] = useState(null);
   var [refundType, setRefundType] = useState(alwaysRestock ? "return" : "full");
@@ -730,6 +731,25 @@ export default function Orders() {
       setRefundSession(null);
     } finally {
       setRefundSessionChecked(true);
+    }
+  };
+
+  // Cash -> card correction on a sale. Never touches refunds. The database
+  // function enforces who may do it (cashiers: own store, till still open).
+  var handleChangeToCard = async function (order) {
+    if (!order) return;
+    if (!window.confirm('Change this sale from CASH to CARD? The till totals will move with it.')) return;
+    setChangingPayment(true);
+    try {
+      var res = await supabase.rpc('change_order_payment_method', { p_order_id: order.id, p_new_method: 'card' });
+      if (res.error) throw res.error;
+      toast.success('Payment changed to card');
+      setViewOrder(null);
+      await loadOrders();
+    } catch (err) {
+      toast.error((err && err.message) || 'Could not change the payment');
+    } finally {
+      setChangingPayment(false);
     }
   };
 
@@ -1461,6 +1481,18 @@ export default function Orders() {
                 }}>
                   <Receipt className="w-4 h-4" /> Reprint Slip
                 </Button>
+              )}
+              {viewOrder.status === 'completed' && String(viewOrder.payment_method || '').toLowerCase() === 'cash'
+                && refundedAmount(viewOrder) === 0 && viewOrder.order_type !== 'pre_order' && (
+                <Button variant="outline" className="w-full gap-2" disabled={changingPayment}
+                  onClick={function () { handleChangeToCard(viewOrder); }}>
+                  <CreditCard className="w-4 h-4" /> {changingPayment ? 'Changing...' : 'Change payment: Cash → Card'}
+                </Button>
+              )}
+              {viewOrder.payment_changed_from && (
+                <p className="text-xs text-muted-foreground">
+                  Payment changed from {viewOrder.payment_changed_from} on {new Date(viewOrder.payment_changed_at).toLocaleString('en-ZA')}.
+                </p>
               )}
               {canRefund && viewOrder.status === 'completed' && !isFullyRefunded(viewOrder) && (
                 <Button variant="outline" className="w-full gap-2" onClick={function () {
