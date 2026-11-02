@@ -177,6 +177,20 @@ export default function StockCountSession() {
     } catch (e) { toast.error(e.message); }
   }
 
+  async function submitForApproval() {
+    if (!window.confirm("Submit this count for approval? You will not be able to change it afterwards.")) return;
+    setBusy(true);
+    try {
+      var res = await supabase.rpc("stock_count_submit", { p_count_id: id });
+      if (res.error) throw res.error;
+      toast.success("Count submitted - a manager will approve it.");
+      setHeader(function (h) { return { ...h, status: "submitted" }; });
+      await refresh();
+    } catch (e) {
+      toast.error(e.message || "Could not submit the count.");
+    } finally { setBusy(false); }
+  }
+
   async function applyCount() {
     setApplying(true);
     try {
@@ -216,6 +230,7 @@ export default function StockCountSession() {
   var masked = summary && summary.blind && !canApply;
   var closed = header.status === "completed" || header.status === "cancelled";
   var live = header.status === "in_progress";
+  var submitted = header.status === "submitted";
 
   var num = function (v) { return v === null || v === undefined ? "—" : Number(v); };
 
@@ -408,9 +423,14 @@ export default function StockCountSession() {
               <Button variant="outline" className="gap-2" onClick={function () { setStatus("paused"); }}>
                 <Pause className="w-4 h-4" /> Pause
               </Button>
-            ) : (
+            ) : (submitted && !canApply) ? null : (
               <Button variant="outline" className="gap-2" onClick={function () { setStatus("in_progress"); }}>
-                <Play className="w-4 h-4" /> Resume
+                <Play className="w-4 h-4" /> {submitted ? "Send back for counting" : "Resume"}
+              </Button>
+            )}
+            {!canApply && !submitted && (
+              <Button className="gap-2 font-semibold" disabled={busy} onClick={submitForApproval}>
+                <CheckCircle className="w-4 h-4" /> Close &amp; submit
               </Button>
             )}
             {canApply && (
@@ -426,7 +446,9 @@ export default function StockCountSession() {
         <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 mb-4">
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
           <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-            This count is paused. Resume it to keep counting.
+            {submitted
+              ? (canApply ? "Submitted for approval. Review it and complete it to update stock." : "Submitted - waiting for a manager to approve it.")
+              : "This count is paused. Resume it to keep counting."}
           </p>
         </div>
       )}

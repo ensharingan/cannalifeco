@@ -17,6 +17,7 @@ var COMPANY_WIDE_ROLES = ["owner", "admin", "superadmin"];
 var STATUS_STYLES = {
   in_progress: "bg-green-500/10 text-green-500",
   paused: "bg-amber-500/10 text-amber-500",
+  submitted: "bg-blue-500/10 text-blue-500",
   completed: "bg-muted text-muted-foreground",
   cancelled: "bg-red-500/10 text-red-500",
 };
@@ -24,6 +25,7 @@ var STATUS_STYLES = {
 var STATUS_LABELS = {
   in_progress: "In progress",
   paused: "Paused",
+  submitted: "Submitted - awaiting approval",
   completed: "Completed",
   cancelled: "Cancelled",
 };
@@ -139,7 +141,7 @@ export default function StockCounts() {
 
   var visible = useMemo(function () {
     return counts.filter(function (c) {
-      if (tab === "due") return c.status === "in_progress" || c.status === "paused";
+      if (tab === "due") return c.status === "in_progress" || c.status === "paused" || c.status === "submitted";
       if (tab === "completed") return c.status === "completed";
       return c.status === "cancelled";
     });
@@ -158,7 +160,7 @@ export default function StockCounts() {
   var formOpenCount = form.store_id ? openByStore[form.store_id] : null;
 
   var dueCount = counts.filter(function (c) {
-    return c.status === "in_progress" || c.status === "paused";
+    return c.status === "in_progress" || c.status === "paused" || c.status === "submitted";
   }).length;
 
   async function createCount() {
