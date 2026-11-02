@@ -1,3 +1,4 @@
+import { printReceipt } from "@/lib/receiptPdf";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/api/supabaseClient";
@@ -184,6 +185,56 @@ function ReportBody({ rep, storeName, final }) {
   );
 }
 
+// Same slip as ReportBody, as lines for the 203dpi PDF printer (lib/receiptPdf.js).
+// Receipts already print this way and come out crisp; window.print() on the
+// browser's 11px HTML is what gave the faint, fuzzy X/Z report slips.
+function reportLines(rep, storeName, final) {
+  var s = rep.session;
+  var now = new Date();
+  var L = [];
+  var row = function (l, r, bold) { L.push({ t: "row", left: String(l), right: String(r), bold: !!bold }); };
+  var rule = function () { L.push({ t: "rule" }); };
+  L.push({ t: "center", text: storeName || "Z REPORT", bold: true });
+  L.push({ t: "center", text: final ? "Z REPORT" : "X REPORT (day not closed)", bold: true });
+  rule();
+  row("Date", dateStr(now)); row("Time", timeStr(now)); row("Report #", rep.reportNo);
+  row("Opened", dateStr(new Date(s.opening_time)) + " " + timeStr(new Date(s.opening_time)));
+  if (s.closing_time) row("Closed", dateStr(new Date(s.closing_time)) + " " + timeStr(new Date(s.closing_time)));
+  rule();
+  row("From document", rep.firstDoc || "-"); row("To document", rep.lastDoc || "-");
+  rule();
+  row("User sales", rep.orders.length);
+  L.push({ t: "text", text: s.cashier_name || "Cashier" });
+  row("Sales total", money(rep.sales));
+  rule();
+  L.push({ t: "text", text: "Tender totals", bold: true });
+  Object.keys(rep.tenders).sort().forEach(function (k) { row(k, money(rep.tenders[k])); });
+  rule();
+  row("Total tendered", money(rep.totalTendered), true);
+  rule();
+  row("Returns", rep.refundCount); row("Total returns", money(rep.refundTotal));
+  row("Discounts granted", money(rep.discounts)); row("Cash paid out", money(rep.cashOutTotal));
+  rule();
+  row("Taxable total", money(rep.sales - rep.tax)); row("Tax", money(rep.tax)); row("Total", money(rep.sales), true);
+  rule();
+  L.push({ t: "text", text: "Cash up", bold: true });
+  row("Opening float", money(rep.opening)); row("Expected cash", money(rep.expected));
+  if (rep.counted != null) row("Counted cash", money(rep.counted));
+  if (rep.variance != null) row(rep.variance < -0.005 ? "Short" : rep.variance > 0.005 ? "Over" : "Variance", money(rep.variance), true);
+  if (rep.cardCounted != null) row("Card machine", money(rep.cardCounted));
+  rule();
+  L.push({ t: "center", text: "ITEMS REPORT", bold: true });
+  rule();
+  L.push({ t: "text", text: "PRODUCT GROUPS", bold: true });
+  Object.keys(rep.groups).sort().forEach(function (k) { row(k, rep.groups[k]); });
+  rule();
+  L.push({ t: "text", text: "PRODUCTS", bold: true });
+  Object.keys(rep.products).sort().forEach(function (k) { row(k, rep.products[k]); });
+  rule();
+  row("Items", rep.itemCount, true);
+  return L;
+}
+
 export default function ZReportModal({ open, sessionId, onClose, final }) {
   var companyCtx = useCompany();
   var companyId = companyCtx.companyId;
@@ -228,7 +279,16 @@ export default function ZReportModal({ open, sessionId, onClose, final }) {
                   <option value={80}>80mm thermal</option>
                   <option value={58}>58mm thermal</option>
                 </select>
-                <Button className="flex-1 gap-2" onClick={function () { window.print(); }}>
+                <Button className="flex-1 gap-2" onClick={function () {
+                  if (width === 80) {
+                    printReceipt({ lines: reportLines(rep, storeName, isFinal) }).catch(function (e) {
+                      console.error("[report] pdf print failed, falling back", e);
+                      window.print();
+                    });
+                  } else {
+                    window.print();
+                  }
+                }}>
                   <Printer className="w-4 h-4" /> Print
                 </Button>
               </div>
