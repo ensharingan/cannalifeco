@@ -476,10 +476,13 @@ export default function POS() {
     if (!isCurrent()) return;
 
     var rawProducts;
-    if (effectiveStoreId && !allowNegative) {
+    // With negative stock allowed, show every product this branch carries (any
+    // inventory row, even at 0 or below) rather than only what is in stock —
+    // but still not products the branch has never held.
+    if (effectiveStoreId) {
       var idMap = {};
       for (var n = 0; n < invData.length; n++) {
-        if ((invData[n].stock_quantity || 0) > 0) idMap[invData[n].product_id] = true;
+        if (allowNegative || (invData[n].stock_quantity || 0) > 0) idMap[invData[n].product_id] = true;
       }
       var ids = Object.keys(idMap);
       rawProducts = ids.length > 0 ? await fetchProductsByIds(companyId, ids) : [];
