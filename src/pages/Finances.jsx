@@ -81,6 +81,8 @@ export default function Finances() {
   const [filterPayment, setFilterPayment] = useState("");
 
   const isOwner = profile?.role === "owner" || profile?.role === "superadmin";
+  // Owners, admins and managers can delete expenses (e.g. test cash-outs).
+  const canDeleteExpense = ["owner", "superadmin", "admin", "manager"].includes(profile?.role);
   // Cashiers/staff never choose the store: whatever they capture is booked to
   // the branch they are working at. Managers and owners keep the picker.
   const isStoreLocked = !!profile?.role && !["owner", "superadmin", "admin", "manager"].includes(profile.role);
@@ -545,7 +547,7 @@ export default function Finances() {
                       {perStoreEnabled && <th className="text-left p-3 font-medium hidden lg:table-cell">Store</th>}
                       <th className="text-left p-3 font-medium hidden lg:table-cell">By</th>
                       <th className="text-right p-3 font-medium">Amount</th>
-                      {isOwner && <th className="text-right p-3 font-medium w-[50px]"></th>}
+                      {canDeleteExpense && <th className="text-right p-3 font-medium w-[50px]"></th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -581,7 +583,7 @@ export default function Finances() {
                           )}
                           <td className="p-3 text-muted-foreground text-xs hidden lg:table-cell">{recordedBy}</td>
                           <td className="p-3 text-right font-bold text-red-500">-{formatCurrency(e.amount)}</td>
-                          {isOwner && (
+                          {canDeleteExpense && (
                             <td className="p-3 text-right">
                               <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDelete(e.id)}>
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -599,7 +601,7 @@ export default function Finances() {
                           Total ({filteredExpenses.length} expenses)
                         </td>
                         <td className="p-3 text-right font-bold text-red-500">-{formatCurrency(filteredTotal)}</td>
-                        {isOwner && <td />}
+                        {canDeleteExpense && <td />}
                       </tr>
                     </tfoot>
                   )}
