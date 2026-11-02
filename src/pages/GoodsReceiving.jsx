@@ -64,7 +64,7 @@ export default function GoodsReceiving() {
     try {
       const [g, s, st, p, mine] = await Promise.all([
         supabase.from('goods_received_notes').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(300),
-        supabase.from('suppliers').select('id, name, vat_registered').eq('company_id', companyId).order('name'),
+        supabase.from('suppliers').select('id, name, vat_registered, is_internal').eq('company_id', companyId).order('name'),
         supabase.from('stores').select('id, name, type, is_active').eq('company_id', companyId).order('name'),
         loadAllProducts(companyId),
         supabase.rpc('ws_my_stores'),
@@ -88,6 +88,12 @@ export default function GoodsReceiving() {
   const productById = useMemo(() => Object.fromEntries(products.map(p => [p.id, p])), [products]);
   const supplier = supplierById[header.supplier_id];
   const vatReg = !!supplier?.vat_registered;
+  // Internal sources (e.g. the stock room) send stock with no invoice: no prices, VAT or delivery note
+  const simple = !!supplier?.is_internal;
+  const staleDrafts = useMemo(() => grns.filter(g => g.status === 'draft' && g.received_date && g.received_date < today()), [grns]);
+  const lastKey = 'grv_last_receive';
+  const readLast = () => { try { return JSON.parse(localStorage.getItem(lastKey) || '{}'); } catch { return {}; } };
+  const writeLast = (v) => { try { localStorage.setItem(lastKey, JSON.stringify(v)); } catch { /* ignore */ } };
 
   const lineVat = (l) => {
     const vt = l.vat_type || productById[l.product_id]?.vat_type || 'standard';
@@ -111,7 +117,10 @@ export default function GoodsReceiving() {
 
   const newGrv = () => {
     setEditingId(null); setReadOnly(false); setGrnNumber("");
-    setHeader({ ...emptyHeader(), store_id: stores.length === 1 ? stores[0].id : "" });
+    const last = readLast();
+    const storeId = stores.length === 1 ? stores[0].id : (stores.some(s => s.id === last.store_id) ? last.store_id : "");
+    const supId = suppliers.some(s => s.id === last.supplier_id) ? last.supplier_id : "";
+    setHeader({ ...emptyHeader(), store_id: storeId, supplier_id: supId });
     setLines([]); setProdSearch(""); setShowPaste(false); setPasteText("");
     setOpen(true);
     setTimeout(() => searchRef.current?.focus(), 150);
@@ -208,6 +217,7 @@ export default function GoodsReceiving() {
         p_post: !!post,
       });
       if (error) throw error;
+      writeLast({ store_id: header.store_id, supplier_id: header.supplier_id });
       toast.success(post ? `${data?.grn_number} posted: stock added` : `${data?.grn_number} saved as draft`);
       setOpen(false);
       load();
@@ -231,10 +241,16 @@ export default function GoodsReceiving() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="w-6 h-6" /> Goods Received (GRV)</h1>
-          <p className="text-sm text-muted-foreground">Receive supplier stock into a store. Posting a GRV adds the quantities to stock.</p>
+          <p className="text-sm text-muted-foreground">Capture every delivery the day it arrives, including stock from the stock room. Posting a GRV adds the quantities to stock, so counts stay accurate.</p>
         </div>
         <Button onClick={newGrv}><Plus className="w-4 h-4 mr-1" /> New GRV</Button>
       </div>
+
+      {staleDrafts.length > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+          {staleDrafts.length} draft GRV{staleDrafts.length > 1 ? 's are' : ' is'} from an earlier day and not posted yet. That stock is physically in the store but not in the system, so it will show as over on a stock count. Open and post {staleDrafts.length > 1 ? 'them' : 'it'}.
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[220px]">
@@ -268,7 +284,7 @@ export default function GoodsReceiving() {
               <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No goods received notes yet</td></tr>
             ) : filtered.map(g => (
               <tr key={g.id} className="border-t hover:bg-muted/30">
-                <td className="p-3 font-medium">{g.grn_number}</td>
+                <td className="p-3 font-medium">{g.grn_number}{g.source === 'count_found' && <span className="ml-2 px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-600 text-[10px] font-normal">Found on count</span>}</td>
                 <td className="p-3">{g.received_date}</td>
                 <td className="p-3">{supplierById[g.supplier_id]?.name || '-'}</td>
                 <td className="p-3">{storeById[g.store_id]?.name || '-'}</td>
@@ -298,7 +314,8 @@ export default function GoodsReceiving() {
                 <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
                 <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
-              {header.supplier_id && <p className="text-xs text-muted-foreground mt-1">{vatReg ? 'VAT registered: 15% VAT added on lines set to VAT. Change a line to Zero rated or Non-VAT in the VAT column.' : 'Not VAT registered: no VAT is charged on any line'}</p>}
+              {header.supplier_id && simple && <p className="text-xs text-muted-foreground mt-1">Internal source: just scan and enter quantities. No prices or VAT needed.</p>}
+              {header.supplier_id && !simple && <p className="text-xs text-muted-foreground mt-1">{vatReg ? 'VAT registered: 15% VAT added on lines set to VAT. Change a line to Zero rated or Non-VAT in the VAT column.' : 'Not VAT registered: no VAT is charged on any line'}</p>}
             </div>
             <div>
               <Label>Receiving store</Label>
@@ -312,7 +329,7 @@ export default function GoodsReceiving() {
               <Input type="date" disabled={readOnly} value={header.received_date} onChange={e => setHeader(h => ({ ...h, received_date: e.target.value }))} />
             </div>
             <div>
-              <Label>Supplier delivery note no.</Label>
+              <Label>{simple ? 'Reference (optional)' : 'Supplier delivery note no.'}</Label>
               <Input disabled={readOnly} value={header.delivery_note_no} onChange={e => setHeader(h => ({ ...h, delivery_note_no: e.target.value }))} />
             </div>
           </div>
@@ -349,16 +366,16 @@ export default function GoodsReceiving() {
           <div className="border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left">
-                <tr><th className="p-2">Product</th><th className="p-2 w-28">Qty</th><th className="p-2 w-32">Unit cost (excl.)</th><th className="p-2 w-44 text-right">VAT</th><th className="p-2 w-32 text-right">Line total</th><th className="p-2 w-10"></th></tr>
+                <tr><th className="p-2">Product</th><th className="p-2 w-28">Qty</th>{!simple && <><th className="p-2 w-32">Unit cost (excl.)</th><th className="p-2 w-44 text-right">VAT</th><th className="p-2 w-32 text-right">Line total</th></>}<th className="p-2 w-10"></th></tr>
               </thead>
               <tbody>
                 {lines.length === 0 ? (
-                  <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Scan or search to add products</td></tr>
+                  <tr><td colSpan={simple ? 3 : 6} className="p-6 text-center text-muted-foreground">Scan or search to add products</td></tr>
                 ) : lines.map((l, i) => (
                   <tr key={l.product_id} className="border-t">
                     <td className="p-2"><div className="font-medium">{l.product_name}</div><div className="text-xs text-muted-foreground">{l.sku}</div></td>
                     <td className="p-2"><Input type="number" min="0" step="any" disabled={readOnly} value={l.quantity} onChange={e => setLine(i, 'quantity', e.target.value)} /></td>
-                    <td className="p-2"><Input type="number" min="0" step="0.01" disabled={readOnly} value={l.unit_cost} onChange={e => setLine(i, 'unit_cost', e.target.value)} /></td>
+                    {!simple && <><td className="p-2"><Input type="number" min="0" step="0.01" disabled={readOnly} value={l.unit_cost} onChange={e => setLine(i, 'unit_cost', e.target.value)} /></td>
                     <td className="p-2 text-right">
                       <Select disabled={readOnly} value={l.vat_type || productById[l.product_id]?.vat_type || 'standard'} onValueChange={v => setLine(i, 'vat_type', v)}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -370,7 +387,7 @@ export default function GoodsReceiving() {
                       </Select>
                       <div className="text-xs text-muted-foreground mt-1">{formatCurrency(lineVat(l))}</div>
                     </td>
-                    <td className="p-2 text-right">{formatCurrency(r2((Number(l.quantity) || 0) * (Number(l.unit_cost) || 0)))}</td>
+                    <td className="p-2 text-right">{formatCurrency(r2((Number(l.quantity) || 0) * (Number(l.unit_cost) || 0)))}</td></>}
                     <td className="p-2">{!readOnly && <Button size="icon" variant="ghost" onClick={() => removeLine(i)}><Trash2 className="w-4 h-4 text-red-500" /></Button>}</td>
                   </tr>
                 ))}
@@ -383,7 +400,7 @@ export default function GoodsReceiving() {
               <Label>Notes</Label>
               <Input disabled={readOnly} value={header.notes} onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))} />
             </div>
-            <div className="text-sm text-right space-y-0.5 min-w-[220px]">
+            <div className={cn("text-sm text-right space-y-0.5 min-w-[220px]", simple && "hidden")}>
               <div className="flex justify-between gap-6"><span className="text-muted-foreground">Total excl. VAT</span><span>{formatCurrency(totals.ex)}</span></div>
               <div className="flex justify-between gap-6"><span className="text-muted-foreground">VAT</span><span>{formatCurrency(totals.vat)}</span></div>
               <div className="flex justify-between gap-6 font-semibold text-base"><span>Total incl. VAT</span><span>{formatCurrency(totals.inc)}</span></div>

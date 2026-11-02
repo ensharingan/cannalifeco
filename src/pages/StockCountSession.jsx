@@ -37,6 +37,10 @@ export default function StockCountSession() {
   var [checked, setChecked] = useState(function () { return new Set(); });
   var [uncountedMode, setUncountedMode] = useState("skip");
   var [applying, setApplying] = useState(false);
+  var [suppliers, setSuppliers] = useState([]);
+  var [recSupplier, setRecSupplier] = useState("");
+  var [recording, setRecording] = useState(false);
+  var [pendingDocs, setPendingDocs] = useState({ drafts: 0, transit: 0 });
 
   var codeRef = useRef(null);
 
@@ -151,12 +155,53 @@ export default function StockCountSession() {
     setSummary(sum.data);
   }, [id]);
 
+  async function loadReceiptContext() {
+    try {
+      var sup = await supabase.from("suppliers").select("id, name, is_internal").eq("is_active", true).order("name");
+      var list = sup.data || [];
+      setSuppliers(list);
+      setRecSupplier(function (cur) {
+        if (cur) return cur;
+        var internal = list.filter(function (s) { return s.is_internal; });
+        return internal.length === 1 ? internal[0].id : "";
+      });
+      var sid = header && header.store_id;
+      if (sid) {
+        var d = await supabase.from("goods_received_notes").select("id", { count: "exact", head: true }).eq("store_id", sid).eq("status", "draft");
+        var t = await supabase.from("stock_transfer_notes").select("id", { count: "exact", head: true }).eq("to_store_id", sid).eq("status", "dispatched");
+        setPendingDocs({ drafts: d.count || 0, transit: t.count || 0 });
+      }
+    } catch (e) { /* the warning is optional */ }
+  }
+
   async function openReview() {
     try {
       await loadReview(reviewFilter);
       setChecked(new Set());
       setInReview(true);
+      loadReceiptContext();
     } catch (e) { toast.error(e.message); }
+  }
+
+  async function recordReceipts() {
+    if (!recSupplier) { toast.error("Choose where the stock came from"); return; }
+    var ids = Array.from(checked);
+    var overIds = ids.length ? reviewRows.filter(function (r) { return ids.indexOf(r.product_id) >= 0 && Number(r.variance) > 0; }).map(function (r) { return r.product_id; }) : null;
+    if (ids.length && !overIds.length) { toast.error("None of the selected products are over"); return; }
+    var n = overIds ? overIds.length : summary.over;
+    if (!window.confirm("Post a GRV for " + n + " over product(s)? This adds the extra units to stock as received, so the count no longer shows them as over.")) return;
+    setRecording(true);
+    try {
+      var res = await supabase.rpc("stock_count_record_receipts", {
+        p_count_id: id, p_supplier_id: recSupplier, p_product_ids: overIds, p_notes: null,
+      });
+      if (res.error) throw res.error;
+      toast.success(res.data.grn_number + " posted: " + res.data.units + " units across " + res.data.items + " products");
+      setChecked(new Set());
+      await loadReview(reviewFilter);
+    } catch (e) {
+      toast.error(e.message || "Could not record the receipt.");
+    } finally { setRecording(false); }
   }
 
   async function switchReviewTab(f) {
@@ -239,6 +284,8 @@ export default function StockCountSession() {
     var tabs = [
       ["uncounted", "Uncounted (" + (summary.uncounted || 0) + ")"],
       ["unmatched", "Unmatched (" + (summary.unmatched || 0) + ")"],
+      ["over", "Over (" + (summary.over || 0) + ")"],
+      ["short", "Short (" + (summary.short || 0) + ")"],
       ["matched", "Matched (" + (summary.matched || 0) + ")"],
       ["excluded", "Excluded (" + (summary.excluded || 0) + ")"],
       ["all", "All (" + (summary.total || 0) + ")"],
@@ -246,6 +293,8 @@ export default function StockCountSession() {
     var blurbs = {
       uncounted: "These were never counted. They keep their current stock unless you set them to zero.",
       unmatched: "What you counted is more or less than expected. Worth a second look before you complete.",
+      over: "More on the shelf than the system expects. This is almost always stock that arrived without a GRV. Record it as received below, or investigate first.",
+      short: "Less on the shelf than the system expects: sales not captured, damage, theft or a miscount.",
       matched: "These match the system exactly. Nothing will change.",
       excluded: "Excluded products are left out of the update entirely.",
       all: "Everything in this count.",
@@ -285,6 +334,36 @@ export default function StockCountSession() {
             </span>
           </span>
         </div>
+
+        {(pendingDocs.drafts > 0 || pendingDocs.transit > 0) && (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 mb-3 text-sm text-amber-600 dark:text-amber-400">
+            <span className="font-medium">Sort these out before completing:</span>{" "}
+            {pendingDocs.drafts > 0 && <span>{pendingDocs.drafts} draft GRV(s) not posted (that stock shows as over). </span>}
+            {pendingDocs.transit > 0 && <span>{pendingDocs.transit} transfer(s) in transit to this store not received yet (that stock shows as short).</span>}
+          </div>
+        )}
+
+        {(summary.over || 0) > 0 && (
+          <div className="rounded-lg border border-border bg-card p-3 mb-3">
+            <div className="text-sm font-medium text-foreground">
+              {summary.over} product(s) are over by {Number(summary.over_units || 0)} unit(s) in total
+              {Number(summary.received_units || 0) > 0 ? " (" + Number(summary.received_units) + " already recorded as received)" : ""}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+              Stock that came in without a GRV. Post it as received so it is on the books with a GRV number, then complete the count. Tick products to record only those, or leave all unticked to record every over product.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <select value={recSupplier} onChange={function (e) { setRecSupplier(e.target.value); }}
+                className="h-9 rounded-md border border-border bg-background px-2 text-sm">
+                <option value="">Received from...</option>
+                {suppliers.map(function (s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
+              </select>
+              <Button size="sm" disabled={recording || !recSupplier} onClick={recordReceipts}>
+                {recording ? "Posting..." : (checked.size ? "Record " + checked.size + " selected as received" : "Record all over as received")}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {(summary.uncounted || 0) > 0 && (
           <label className="flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 mb-4 cursor-pointer">
@@ -503,7 +582,11 @@ export default function StockCountSession() {
               ["all", "All (" + (summary.total || 0) + ")"],
               ["counted", "Counted (" + (summary.counted || 0) + ")"],
               ["uncounted", "Uncounted (" + (summary.uncounted || 0) + ")"],
-            ].map(function (t) {
+            ].concat(summary.variances === null || summary.variances === undefined ? [] : [
+              ["variance", "Variances (" + summary.variances + ")"],
+              ["over", "Over (" + (summary.over || 0) + ")"],
+              ["short", "Short (" + (summary.short || 0) + ")"],
+            ]).map(function (t) {
               return (
                 <button key={t[0]} onClick={function () { setFilter(t[0]); }}
                   className={cn("-mb-px border-b-2 px-1 pb-3 text-sm font-medium transition-colors",
