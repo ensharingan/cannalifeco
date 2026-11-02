@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { Search, QrCode, X, ShoppingCart, ScanLine, Scale, Receipt, CheckCircle, UserCheck, AlertTriangle, Tag, Banknote, PackageSearch, RefreshCw, Ticket, CreditCard, Lock, Store, Wallet, ShoppingBag, UserPlus } from "lucide-react";
+import { Search, QrCode, X, ShoppingCart, ScanLine, Scale, Receipt, CheckCircle, UserCheck, AlertTriangle, Tag, Banknote, PackageSearch, RefreshCw, Ticket, CreditCard, Lock, Store, Wallet, ShoppingBag, UserPlus, Truck } from "lucide-react";
 import BarcodeScanner from "../components/pos/BarcodeScanner";
 import useBarcodeScanner from "../hooks/useBarcodeScanner";
 import {
@@ -280,6 +280,7 @@ export default function POS() {
   var [promotions, setPromotions] = useState([]);
   var [cart, setCart] = useState([]);
   var [searchTerm, setSearchTerm] = useState("");
+  var [deliveryAmount, setDeliveryAmount] = useState("");
   var [selectedCategory, setSelectedCategory] = useState("");
   var [selectedPromo, setSelectedPromo] = useState(null);
   var [selectedMember, setSelectedMember] = useState(null);
@@ -1164,6 +1165,29 @@ export default function POS() {
     });
   }, [selectedMember, allowNegative]);
 
+  // Delivery fee: a free-text amount typed next to the search bar, added to the
+  // cart as its own line. It has no product row behind it (product_id null), so
+  // checkout's stock loop skips it (it only deducts for ids found in products)
+  // and it never touches inventory. Each click is its own line, so two
+  // deliveries on one ticket stay separate.
+  var addDeliveryToCart = useCallback(function () {
+    if (storeMismatch) { toast.error("Sort out the store first — your session is at " + activeStoreName + " but the selector says " + selectorStoreName + "."); return; }
+    if (requireOpenSession && !activeSession) { toast.error("Open the day before ringing up a sale"); return; }
+    if (selectedMember && selectedMember.is_banned) { toast.error("This member is banned and cannot make purchases"); return; }
+    var amt = Math.round(Number(String(deliveryAmount).replace(",", ".")) * 100) / 100;
+    if (!isFinite(amt) || amt <= 0) { toast.error("Enter the delivery amount first"); return; }
+    setCart(function (prev) {
+      return prev.concat([{
+        _cart_key: "delivery:" + Date.now() + ":" + prev.length, product_id: null, name: "Delivery", price: amt, qty: 1,
+        stock: 999999, grams_per_unit: 1, unit_weight: null, product_type: null, category: "delivery",
+        cost_price: 0, sku: null, supplier_id: null, promo_id: null, promo_name: null,
+        line_discount: 0, line_discount_type: "rand",
+      }]);
+    });
+    setDeliveryAmount("");
+    toast.success("Delivery R" + amt.toFixed(2) + " added");
+  }, [deliveryAmount, storeMismatch, requireOpenSession, activeSession, selectedMember, activeStoreName, selectorStoreName]);
+
   var handleProductSelect = useCallback(function (product) {
     // Hard stop. While the session's branch and the selector disagree there is
     // no safe answer to "which store is this coming off", so nothing goes in
@@ -1826,6 +1850,20 @@ export default function POS() {
               <Button variant="outline" size="icon" className="shrink-0" onClick={function () { setShowScanner(true); }} title="Scan barcode (camera)" disabled={storeMismatch}>
                 <ScanLine className="w-4 h-4" />
               </Button>
+
+              {/* ── DELIVERY ── variable amount, goes in the cart as its own line ── */}
+              <div className="flex items-center gap-1 shrink-0">
+                <div className="relative w-28">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R</span>
+                  <Input type="number" inputMode="decimal" min="0" step="0.01" placeholder="Amount" value={deliveryAmount}
+                    onChange={function (e) { setDeliveryAmount(e.target.value); }}
+                    onKeyDown={function (e) { if (e.key === "Enter") { e.preventDefault(); addDeliveryToCart(); } }}
+                    className="pl-6" disabled={storeMismatch} aria-label="Delivery amount" />
+                </div>
+                <Button variant="outline" onClick={addDeliveryToCart} disabled={storeMismatch || !(Number(deliveryAmount) > 0)} className="gap-1.5 whitespace-nowrap" title="Add delivery fee to cart">
+                  <Truck className="w-4 h-4" /> Delivery
+                </Button>
+              </div>
 
               {/* ── SELL VOUCHER ── the only place money is taken ── */}
               {voucherMode && (
