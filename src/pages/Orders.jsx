@@ -57,7 +57,7 @@ function parseItems(items) {
 function getPaymentGroup(method) {
   var m = (method || '').toLowerCase().trim();
   if (m === 'cash') return 'cash';
-  if (['card', 'eft', 'mobile', 'credit card', 'debit card'].includes(m)) return 'card';
+  if (['card', 'eft', 'mobile', 'credit card', 'debit card', 'payment_link'].includes(m)) return 'card';
   if (m === 'split') return 'split';
   if (['store_credit', 'store credit', 'credit'].includes(m)) return 'store_credit';
   return 'other';
@@ -736,14 +736,16 @@ export default function Orders() {
 
   // Cash -> card correction on a sale. Never touches refunds. The database
   // function enforces who may do it (cashiers: own store, till still open).
-  var handleChangeToCard = async function (order) {
+  var handleChangeToCard = async function (order, newMethod) {
     if (!order) return;
-    if (!window.confirm('Change this sale from CASH to CARD? The till totals will move with it.')) return;
+    newMethod = newMethod || 'card';
+    var label = newMethod === 'payment_link' ? 'PAY LINK' : 'CARD';
+    if (!window.confirm('Change this sale from CASH to ' + label + '? The till totals will move with it.')) return;
     setChangingPayment(true);
     try {
-      var res = await supabase.rpc('change_order_payment_method', { p_order_id: order.id, p_new_method: 'card' });
+      var res = await supabase.rpc('change_order_payment_method', { p_order_id: order.id, p_new_method: newMethod });
       if (res.error) throw res.error;
-      toast.success('Payment changed to card');
+      toast.success('Payment changed to ' + (newMethod === 'payment_link' ? 'pay link' : 'card'));
       setViewOrder(null);
       await loadOrders();
     } catch (err) {
@@ -1484,10 +1486,16 @@ export default function Orders() {
               )}
               {viewOrder.status === 'completed' && String(viewOrder.payment_method || '').toLowerCase() === 'cash'
                 && refundedAmount(viewOrder) === 0 && viewOrder.order_type !== 'pre_order' && (
-                <Button variant="outline" className="w-full gap-2" disabled={changingPayment}
-                  onClick={function () { handleChangeToCard(viewOrder); }}>
-                  <CreditCard className="w-4 h-4" /> {changingPayment ? 'Changing...' : 'Change payment: Cash → Card'}
-                </Button>
+                <>
+                  <Button variant="outline" className="w-full gap-2" disabled={changingPayment}
+                    onClick={function () { handleChangeToCard(viewOrder, 'card'); }}>
+                    <CreditCard className="w-4 h-4" /> {changingPayment ? 'Changing...' : 'Change payment: Cash → Card'}
+                  </Button>
+                  <Button variant="outline" className="w-full gap-2" disabled={changingPayment}
+                    onClick={function () { handleChangeToCard(viewOrder, 'payment_link'); }}>
+                    <CreditCard className="w-4 h-4" /> {changingPayment ? 'Changing...' : 'Change payment: Cash → Pay Link'}
+                  </Button>
+                </>
               )}
               {viewOrder.payment_changed_from && (
                 <p className="text-xs text-muted-foreground">

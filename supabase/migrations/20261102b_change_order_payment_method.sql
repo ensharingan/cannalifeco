@@ -23,8 +23,8 @@ declare
   v_amt numeric;
 begin
   if v_uid is null then raise exception 'Not signed in'; end if;
-  if lower(coalesce(p_new_method,'')) <> 'card' then
-    raise exception 'Only cash sales can be changed to card';
+  if lower(coalesce(p_new_method,'')) not in ('card','payment_link') then
+    raise exception 'A cash sale can only be changed to card or payment link';
   end if;
 
   select * into v_order from orders where id = p_order_id for update;
@@ -36,7 +36,7 @@ begin
   end if;
 
   if lower(coalesce(v_order.payment_method,'')) <> 'cash' then
-    raise exception 'Only cash sales can be changed to card';
+    raise exception 'Only cash sales can be changed';
   end if;
   if v_order.status <> 'completed' or coalesce(v_order.refund_total,0) > 0 then
     raise exception 'This sale is refunded or not completed, so the payment cannot be changed';
@@ -61,8 +61,8 @@ begin
   v_amt := round(coalesce(v_order.total_amount,0), 2);
 
   update orders
-     set payment_method = 'card',
-         payment_details = jsonb_build_array(jsonb_build_object('method','card','amount', v_amt))::jsonb,
+     set payment_method = lower(p_new_method),
+         payment_details = jsonb_build_array(jsonb_build_object('method', lower(p_new_method),'amount', v_amt))::jsonb,
          payment_changed_from = 'cash',
          payment_changed_by = v_uid,
          payment_changed_at = now(),
