@@ -1367,6 +1367,9 @@ export default function Orders() {
                 {viewOrder.discount_amount > 0 && (
                   <div><span className="text-muted-foreground">Discount</span><br />{formatCurrency(viewOrder.discount_amount)}</div>
                 )}
+                {viewOrder.discount_note && (
+                  <div className="col-span-2"><span className="text-muted-foreground">Discount note</span><br />{viewOrder.discount_note}</div>
+                )}
                 {viewOrder.credit_applied > 0 && (
                   <div>
                     <span className="text-muted-foreground">Store Credit Applied</span><br />

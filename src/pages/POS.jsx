@@ -1367,6 +1367,7 @@ export default function POS() {
         member_id: isWalkIn ? null : selectedMember.id,
         member_name: isWalkIn ? "Walk-in" : selectedMember.first_name + " " + selectedMember.last_name,
         total_amount: finalTotal, discount_amount: discountAmount, discount_type: discountType, discount_value: discountValue,
+        discount_note: checkoutData && checkoutData.discountNote ? checkoutData.discountNote : null,
         payment_method: finalPaymentMethod, payment_details: paymentDetails ? JSON.stringify(paymentDetails) : null,
         credit_applied: appliedCredit || 0,
         status: finalPaymentMethod === "unpaid" ? "unpaid" : "completed",

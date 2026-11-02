@@ -399,6 +399,7 @@ export default function CartPanel({
   var [cashTendered, setCashTendered] = useState("");
   var [discountType, setDiscountType] = useState("percentage");
   var [discountInput, setDiscountInput] = useState("");
+  var [discountNote, setDiscountNote] = useState("");
   var [showSplitDialog, setShowSplitDialog] = useState(false);
   var [confirmedSplitDetails, setConfirmedSplitDetails] = useState(null);
   var [editingQty, setEditingQty] = useState({});
@@ -553,6 +554,7 @@ export default function CartPanel({
   useEffect(function () {
     if (cart.length > 0) return;
     setDiscountInput("");
+    setDiscountNote("");
     setDiscountType("percentage");
     setCodeInput("");
     setAppliedCode(null);
@@ -683,6 +685,7 @@ export default function CartPanel({
     var checkoutData = {
       discountType: discountType,
       discountValue: discountVal,
+      discountNote: needsDiscountNote ? discountNote.trim() : null,
       // All-in figure for orders.discount_amount: line discounts + promos +
       // code + manual.
       discountAmount: totalDiscountAmount,
@@ -732,7 +735,11 @@ export default function CartPanel({
 
   // A link is optional: only insist on "payment received" once a link is actually shown.
   var linkOk = paymentMethod !== "payment_link" || !linkValid || linkPaid;
-  var canCheckout = cart.length > 0 && paymentMethod && !isProcessing && cashOk && splitOk && voucherOk && linkOk;
+  // A cashier-given discount (line or cart-level) needs a reason on the order.
+  // Promotions and promo codes already carry their own name, so they don't.
+  var needsDiscountNote = canDiscount && (lineDiscountTotal > 0 || manualDiscountAmount > 0);
+  var discountNoteOk = !needsDiscountNote || discountNote.trim().length > 0;
+  var canCheckout = cart.length > 0 && discountNoteOk && paymentMethod && !isProcessing && cashOk && splitOk && voucherOk && linkOk;
 
   var handleQtyChange = function (key, value) {
     setEditingQty(function (prev) { var n = { ...prev }; n[key] = value; return n; });
@@ -1065,6 +1072,18 @@ export default function CartPanel({
           <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
             <Lock className="w-3 h-3 text-muted-foreground shrink-0" />
             <p className="text-xs text-muted-foreground">Discounts are set by promo code. Ask a manager if a code is needed.</p>
+          </div>
+        )}
+
+        {/* Discount note — shown once a cashier discount is in play, and
+            required before the sale can be completed. */}
+        {needsDiscountNote && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground w-14 shrink-0">Reason</label>
+            <Input value={discountNote} maxLength={200}
+              onChange={function (e) { setDiscountNote(e.target.value); }}
+              className={"h-8 text-sm flex-1 " + (discountNoteOk ? "" : "border-amber-500")}
+              placeholder="Discount note (required) e.g. staff, loyalty, damaged" />
           </div>
         )}
 
