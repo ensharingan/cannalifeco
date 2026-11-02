@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "../lib/currency";
 import {
   ArrowLeft, Search, ScanLine, Pause, Play, CheckCircle, Check,
-  Trash2, EyeOff, AlertTriangle, History, ClipboardCheck,
+  Trash2, EyeOff, AlertTriangle, History, ClipboardCheck, Download, Share2, RotateCcw,
 } from "lucide-react";
 
 var PAGE = 300;
@@ -154,6 +154,67 @@ export default function StockCountSession() {
     var sum = await supabase.rpc("stock_count_summary", { p_count_id: id });
     setSummary(sum.data);
   }, [id]);
+
+  // Variances as a CSV (opens in Excel / Sheets): download it, or share it straight to WhatsApp on a phone
+  async function buildVarianceFile() {
+    var all = [];
+    for (var off = 0; ; off += 1000) {
+      var res = await supabase.rpc("stock_count_items_list", {
+        p_count_id: id, p_filter: "variance", p_search: null, p_limit: 1000, p_offset: off,
+      });
+      if (res.error) throw res.error;
+      all = all.concat(res.data || []);
+      if (!res.data || res.data.length < 1000) break;
+    }
+    if (!all.length) return null;
+    var st = await supabase.from("stores").select("name").eq("id", header.store_id).single();
+    var storeName = st.data ? st.data.name : "";
+    var q = function (v) { return '"' + String(v === null || v === undefined ? "" : v).replace(/"/g, '""') + '"'; };
+    var over = 0, short = 0, value = 0;
+    var body = all.map(function (r) {
+      var d = Number(r.variance);
+      if (d > 0) over += d; else short += -d;
+      value += Number(r.value_variance) || 0;
+      return [r.product_name, r.sku || r.barcode || "", Number(r.expected_qty), Number(r.counted_qty), d, Number(r.value_variance || 0).toFixed(2), d > 0 ? "Over" : "Short"];
+    });
+    var rows = [
+      ["Stock count variances"], ["Store", storeName], ["Count", header.name],
+      ["Date", new Date().toLocaleDateString("en-ZA")],
+      ["Products with variances", all.length], ["Units over", over], ["Units short", short], ["Value of variance (R)", value.toFixed(2)], [],
+      ["Product", "SKU", "Expected", "Counted", "Variance", "Value (R)", "Over / Short"],
+    ].concat(body);
+    var csv = "﻿" + rows.map(function (r) { return r.map(q).join(","); }).join("\r\n");
+    var safe = (storeName + " variances " + new Date().toISOString().slice(0, 10)).replace(/[^a-z0-9]+/gi, "-");
+    return new File([csv], safe + ".csv", { type: "text/csv" });
+  }
+
+  async function downloadVariances(share) {
+    try {
+      var file = await buildVarianceFile();
+      if (!file) { toast.info("No variances in this count"); return; }
+      if (share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: "Stock count variances" }); } catch (e) { /* cancelled */ }
+        return;
+      }
+      var url = URL.createObjectURL(file);
+      var a = document.createElement("a");
+      a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    } catch (e) { toast.error(e.message || "Could not build the variance file."); }
+  }
+
+  async function reopenCount() {
+    var reason = window.prompt("Reopen this count so it can be changed? The stock changes it made are taken back, then you can recount and complete it again.\n\nReason (required):");
+    if (reason === null) return;
+    if (!reason.trim()) { toast.error("Give a reason to reopen the count"); return; }
+    try {
+      var res = await supabase.rpc("stock_count_reopen", { p_count_id: id, p_reason: reason.trim() });
+      if (res.error) throw res.error;
+      toast.success("Count reopened. " + (res.data.reversed_lines || 0) + " stock changes taken back.");
+      setHeader(function (h) { return { ...h, status: "in_progress" }; });
+      await refresh();
+    } catch (e) { toast.error(e.message || "Could not reopen the count."); }
+  }
 
   async function loadReceiptContext() {
     try {
@@ -315,6 +376,10 @@ export default function StockCountSession() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Variances</Button>
+            {typeof navigator !== "undefined" && typeof navigator.canShare === "function" && (
+              <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(true); }}><Share2 className="w-4 h-4" /> Share</Button>
+            )}
             <Button variant="outline" onClick={discardCount}>Discard</Button>
             <Button variant="outline" onClick={function () { setInReview(false); }}>Continue counting</Button>
             <Button className="gap-2 font-semibold" disabled={applying} onClick={applyCount}>
@@ -493,8 +558,23 @@ export default function StockCountSession() {
           </div>
         </div>
 
+        {canApply && (closed || submitted) && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Download variances</Button>
+            {typeof navigator !== "undefined" && typeof navigator.canShare === "function" && (
+              <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(true); }}><Share2 className="w-4 h-4" /> Share</Button>
+            )}
+            {header.status === "completed" && (
+              <Button className="gap-2 font-semibold" onClick={reopenCount}><RotateCcw className="w-4 h-4" /> Reopen count</Button>
+            )}
+          </div>
+        )}
+
         {!closed && (
           <div className="flex flex-wrap gap-2">
+            {canApply && live && (
+              <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Variances</Button>
+            )}
             <Button variant="outline" className="gap-2 lg:hidden" onClick={function () { setShowRecent(!showRecent); }}>
               <History className="w-4 h-4" /> Last counted
             </Button>
