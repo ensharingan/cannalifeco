@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { Search, QrCode, X, ShoppingCart, ScanLine, Scale, Receipt, CheckCircle, UserCheck, AlertTriangle, Tag, Banknote, PackageSearch, RefreshCw, Ticket, CreditCard, Lock, Store, Wallet, ShoppingBag } from "lucide-react";
+import { Search, QrCode, X, ShoppingCart, ScanLine, Scale, Receipt, CheckCircle, UserCheck, AlertTriangle, Tag, Banknote, PackageSearch, RefreshCw, Ticket, CreditCard, Lock, Store, Wallet, ShoppingBag, UserPlus } from "lucide-react";
 import BarcodeScanner from "../components/pos/BarcodeScanner";
 import useBarcodeScanner from "../hooks/useBarcodeScanner";
 import {
@@ -11,6 +11,7 @@ import PromotionsBanner from "../components/pos/PromotionsBanner";
 import ReceiptModal from "../components/pos/ReceiptModal";
 import TillCashOut from "../components/pos/TillCashOut";
 import MemberCreditManager from "../components/pos/MemberCreditManager";
+import QuickAddMember from "../components/pos/QuickAddMember";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -298,6 +299,7 @@ export default function POS() {
   var [searchedMembers, setSearchedMembers] = useState([]);
   var [memberSearching, setMemberSearching] = useState(false);
   var [showMemberDialog, setShowMemberDialog] = useState(false);
+  var [showQuickAdd, setShowQuickAdd] = useState(false);
   var [discount, setDiscount] = useState(0);
   var [paymentMethod, setPaymentMethod] = useState(voucherMode ? "credit" : "cash");
   var [isProcessing, setIsProcessing] = useState(false);
@@ -2413,6 +2415,9 @@ export default function POS() {
             <Button variant="outline" className="w-full justify-start gap-2" onClick={function () { handleSelectMember(WALKIN_CUSTOMER); }}>
               <UserCheck className="w-4 h-4" /> Walk-in Customer (no member)
             </Button>
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={function () { setShowQuickAdd(true); }}>
+              <UserPlus className="w-4 h-4" /> Add Walk-in Member (register new)
+            </Button>
             <Input placeholder="Search by name, ID, email, or phone..." value={memberSearch} onChange={function (e) { setMemberSearch(e.target.value); }} />
             <div className="max-h-72 overflow-y-auto space-y-1">
               {memberSearching && (<div className="flex items-center justify-center py-6"><div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>)}
@@ -2428,6 +2433,9 @@ export default function POS() {
             <Button variant="outline" className="w-full justify-start gap-2" onClick={function () { handleSelectMember(WALKIN_CUSTOMER); }}>
               <UserCheck className="w-4 h-4" /> Walk-in Customer (no member)
             </Button>
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={function () { setShowQuickAdd(true); }}>
+              <UserPlus className="w-4 h-4" /> Add Walk-in Member (register new)
+            </Button>
             <Input placeholder="Search by name, ID, email, or phone..." value={memberSearch} onChange={function (e) { setMemberSearch(e.target.value); }} autoFocus />
             <div className="max-h-80 overflow-y-auto space-y-1">
               {memberSearching && (<div className="flex items-center justify-center py-6"><div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>)}
@@ -2437,6 +2445,16 @@ export default function POS() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <QuickAddMember
+        open={showQuickAdd}
+        onOpenChange={setShowQuickAdd}
+        companyId={companyId}
+        storeId={effectiveStoreId}
+        storeSettings={storeSettings}
+        initialName={memberSearch}
+        onCreated={function (m) { handleSelectMember(m); }}
+      />
 
       {showScanner && (<BarcodeScanner onDetected={handleBarcodeDetected} onClose={function () { setShowScanner(false); }} />)}
       <ReceiptModal receipt={receipt} onClose={function () { setReceipt(null); }} />
