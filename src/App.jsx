@@ -59,6 +59,7 @@ import TillCashOuts from './pages/TillCashOuts';
 import StockCounts from './pages/StockCounts';
 import GoodsReceiving from './pages/GoodsReceiving';
 import StockTransfers from './pages/StockTransfers';
+import StockRequests from './pages/StockRequests';
 import StockCountSession from './pages/StockCountSession';
 
 // Head Office is franchise-level (multi-store) control — owners and
@@ -152,6 +153,7 @@ const AuthenticatedApp = () => {
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/goods-receiving" element={<GoodsReceiving />} />
         <Route path="/stock-transfers" element={<StockTransfers />} />
+        <Route path="/stock-requests" element={<StockRequests />} />
         <Route path="/stock-counts" element={<StockCounts />} />
         <Route path="/stock-counts/:id" element={<StockCountSession />} />
         <Route path="/print-labels" element={<PrintLabels />} />

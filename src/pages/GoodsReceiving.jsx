@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from '@/api/supabaseClient';
+import { useSearchParams } from "react-router-dom";
 import { Plus, Search, Trash2, Upload, Truck, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ const statusColors = {
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyHeader = () => ({ supplier_id: "", store_id: "", received_date: today(), delivery_note_no: "", notes: "" });
+const emptyHeader = () => ({ supplier_id: "", store_id: "", received_date: today(), delivery_note_no: "", notes: "", request_id: "" });
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 async function loadAllProducts(companyId) {
@@ -53,6 +54,8 @@ export default function GoodsReceiving() {
   const [header, setHeader] = useState(emptyHeader());
   const [lines, setLines] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [requests, setRequests] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [prodSearch, setProdSearch] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [showPaste, setShowPaste] = useState(false);
@@ -62,14 +65,16 @@ export default function GoodsReceiving() {
     if (!companyId) return;
     setLoading(true);
     try {
-      const [g, s, st, p, mine] = await Promise.all([
+      const [g, s, st, p, mine, rq] = await Promise.all([
         supabase.from('goods_received_notes').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(300),
         supabase.from('suppliers').select('id, name, vat_registered, is_internal').eq('company_id', companyId).order('name'),
         supabase.from('stores').select('id, name, type, is_active').eq('company_id', companyId).order('name'),
         loadAllProducts(companyId),
         supabase.rpc('ws_my_stores'),
+        supabase.from('stock_requests').select('id, request_number, store_id, supplier_id, status, requested_date').eq('company_id', companyId).in('status', ['requested', 'partial']).order('created_at', { ascending: false }),
       ]);
       const allowed = new Set(mine.data || []);
+      setRequests(rq.data || []);
       setGrns(g.data || []);
       setSuppliers(s.data || []);
       setStores((st.data || []).filter(x => x.is_active !== false && allowed.has(x.id)));
@@ -126,13 +131,37 @@ export default function GoodsReceiving() {
     setTimeout(() => searchRef.current?.focus(), 150);
   };
 
+  // Fill the GRV from a stock request: only what is still due
+  const applyRequest = async (reqId) => {
+    if (!reqId) { setHeader(h => ({ ...h, request_id: "" })); return; }
+    const req = requests.find(r => r.id === reqId);
+    const { data, error } = await supabase.from('stock_request_lines').select('*').eq('request_id', reqId).order('product_name');
+    if (error || !req) { toast.error('Could not load that request'); return; }
+    setHeader(h => ({ ...h, request_id: reqId, store_id: req.store_id, supplier_id: req.supplier_id }));
+    setLines((data || []).filter(l => Number(l.quantity) - Number(l.received_quantity) > 0).map(l => {
+      const p = productById[l.product_id];
+      return { product_id: l.product_id, product_name: l.product_name, sku: l.sku, quantity: Number(l.quantity) - Number(l.received_quantity), unit_cost: Number(p?.cost_price) || 0, vat_type: p?.vat_type || 'standard' };
+    }));
+    toast.success(`${req.request_number} loaded: check the counts against what actually arrived`);
+  };
+
+  // Arriving from Stock Requests > Receive
+  const reqParam = searchParams.get('request');
+  useEffect(() => {
+    if (!reqParam || loading || !requests.length || !products.length) return;
+    newGrv();
+    applyRequest(reqParam);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reqParam, loading, requests.length, products.length]);
+
   const openGrv = async (g) => {
     const { data, error } = await supabase.from('grn_lines').select('*').eq('grn_id', g.id).order('created_at');
     if (error) { toast.error('Could not load lines'); return; }
     setEditingId(g.id); setReadOnly(g.status !== 'draft'); setGrnNumber(g.grn_number);
     setHeader({
       supplier_id: g.supplier_id || "", store_id: g.store_id || "",
-      received_date: g.received_date || today(), delivery_note_no: g.delivery_note_no || "", notes: g.notes || "",
+      received_date: g.received_date || today(), delivery_note_no: g.delivery_note_no || "", notes: g.notes || "", request_id: g.request_id || "",
     });
     setLines((data || []).map(l => ({
       product_id: l.product_id, product_name: l.product_name, sku: l.sku,
@@ -333,6 +362,21 @@ export default function GoodsReceiving() {
               <Input disabled={readOnly} value={header.delivery_note_no} onChange={e => setHeader(h => ({ ...h, delivery_note_no: e.target.value }))} />
             </div>
           </div>
+
+          {!readOnly && (requests.length > 0 || header.request_id) && (
+            <div className="max-w-md">
+              <Label>Receiving against a stock request (optional)</Label>
+              <Select value={header.request_id || "none"} onValueChange={v => applyRequest(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="No request" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No request</SelectItem>
+                  {requests.filter(r => !header.store_id || r.store_id === header.store_id).map(r => (
+                    <SelectItem key={r.id} value={r.id}>{r.request_number} · {storeById[r.store_id]?.name} · {supplierById[r.supplier_id]?.name}{r.status === 'partial' ? ' (part received)' : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {!readOnly && (
             <div className="space-y-2">
