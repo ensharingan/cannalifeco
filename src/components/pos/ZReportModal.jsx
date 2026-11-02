@@ -108,6 +108,7 @@ async function buildReport(sessionId, companyId) {
 
 var PRINT_CSS = function (w) {
   return "@media print {" +
+    " [role='dialog'], [data-radix-popper-content-wrapper] { display: none !important; }" +
     " body * { visibility: hidden !important; }" +
     " #session-z-print, #session-z-print * { visibility: visible !important; }" +
     " #session-z-print { position: absolute; left: 0; top: 0; width: " + w + "mm; padding: 2mm 3mm; margin: 0; color: #000; background: #fff;" +
@@ -282,8 +283,8 @@ export default function ZReportModal({ open, sessionId, onClose, final }) {
                 <Button className="flex-1 gap-2" onClick={function () {
                   if (width === 80) {
                     printReceipt({ lines: reportLines(rep, storeName, isFinal) }).catch(function (e) {
-                      console.error("[report] pdf print failed, falling back", e);
-                      window.print();
+                      console.error("[report] print failed", e);
+                      alert("Could not print the report. Please refresh the page and try again.");
                     });
                   } else {
                     window.print();
