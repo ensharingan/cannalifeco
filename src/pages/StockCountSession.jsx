@@ -155,7 +155,7 @@ export default function StockCountSession() {
     setSummary(sum.data);
   }, [id]);
 
-  // Variances as a CSV (opens in Excel / Sheets): download it, or share it straight to WhatsApp on a phone
+  // Store-friendly PDF: product, what the system expects, what was counted, and a plain "3 over" / "2 short"
   async function buildVarianceFile() {
     var all = [];
     for (var off = 0; ; off += 1000) {
@@ -169,23 +169,61 @@ export default function StockCountSession() {
     if (!all.length) return null;
     var st = await supabase.from("stores").select("name").eq("id", header.store_id).single();
     var storeName = st.data ? st.data.name : "";
-    var q = function (v) { return '"' + String(v === null || v === undefined ? "" : v).replace(/"/g, '""') + '"'; };
-    var over = 0, short = 0, value = 0;
-    var body = all.map(function (r) {
+    var mod = await import("jspdf");
+    var doc = new mod.jsPDF({ unit: "mm", format: "a4" });
+    var clean = function (t) { return String(t == null ? "" : t).replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[^\x20-\xFF]/g, ""); };
+    var fmt = function (v) { var x = Number(v); return Number.isInteger(x) ? String(x) : String(Math.round(x * 100) / 100); };
+    var M = 14, W = 210, y = 0;
+    var over = all.filter(function (r) { return Number(r.variance) > 0; }).length;
+    var short = all.length - over;
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(17);
+    doc.text("Stock count variances", M, 18);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
+    doc.text(clean("Store: " + storeName), M, 26);
+    doc.text(clean("Count: " + header.name), M, 32);
+    doc.text("Date: " + new Date().toLocaleDateString("en-ZA"), M, 38);
+    doc.setFont("helvetica", "bold");
+    doc.text(all.length + " product(s) do not match: " + over + " over, " + short + " short", M, 46);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(90);
+    var note = doc.splitTextToSize("System = what the system says should be in the store. Counted = what was counted. OVER means more was counted than the system has (usually stock that came in without being received on the system). SHORT means less was counted. Please check these items.", W - 2 * M);
+    doc.text(note, M, 52);
+    doc.setTextColor(0);
+    y = 52 + note.length * 4.6 + 4;
+
+    var head = function () {
+      doc.setFillColor(235, 235, 235); doc.rect(M, y - 5, W - 2 * M, 8, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+      doc.text("Product", M + 2, y);
+      doc.text("System", 140, y, { align: "right" });
+      doc.text("Counted", 162, y, { align: "right" });
+      doc.text("Difference", 168, y);
+      y += 7; doc.setFont("helvetica", "normal");
+    };
+    head();
+    all.forEach(function (r, i) {
+      var lines = doc.splitTextToSize(clean(r.product_name), 100);
+      var h = Math.max(7, lines.length * 4.8 + 2.4);
+      if (y + h > 280) { doc.addPage(); y = 16; head(); }
+      if (i % 2 === 1) { doc.setFillColor(247, 247, 247); doc.rect(M, y - 4.8, W - 2 * M, h, "F"); }
       var d = Number(r.variance);
-      if (d > 0) over += d; else short += -d;
-      value += Number(r.value_variance) || 0;
-      return [r.product_name, r.sku || r.barcode || "", Number(r.expected_qty), Number(r.counted_qty), d, Number(r.value_variance || 0).toFixed(2), d > 0 ? "Over" : "Short"];
+      doc.setFontSize(10); doc.setTextColor(0);
+      doc.text(lines, M + 2, y);
+      doc.text(fmt(r.expected_qty), 140, y, { align: "right" });
+      doc.text(fmt(r.counted_qty), 162, y, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      if (d > 0) doc.setTextColor(180, 110, 0); else doc.setTextColor(200, 30, 30);
+      doc.text(fmt(Math.abs(d)) + (d > 0 ? " over" : " short"), 168, y);
+      doc.setFont("helvetica", "normal"); doc.setTextColor(0);
+      y += h;
     });
-    var rows = [
-      ["Stock count variances"], ["Store", storeName], ["Count", header.name],
-      ["Date", new Date().toLocaleDateString("en-ZA")],
-      ["Products with variances", all.length], ["Units over", over], ["Units short", short], ["Value of variance (R)", value.toFixed(2)], [],
-      ["Product", "SKU", "Expected", "Counted", "Variance", "Value (R)", "Over / Short"],
-    ].concat(body);
-    var csv = "﻿" + rows.map(function (r) { return r.map(q).join(","); }).join("\r\n");
+    var pages = doc.getNumberOfPages();
+    for (var p = 1; p <= pages; p++) {
+      doc.setPage(p); doc.setFontSize(8.5); doc.setTextColor(120);
+      doc.text("Page " + p + " of " + pages, W - M, 290, { align: "right" });
+    }
     var safe = (storeName + " variances " + new Date().toISOString().slice(0, 10)).replace(/[^a-z0-9]+/gi, "-");
-    return new File([csv], safe + ".csv", { type: "text/csv" });
+    return new File([doc.output("blob")], safe + ".pdf", { type: "application/pdf" });
   }
 
   async function downloadVariances(share) {
@@ -376,7 +414,7 @@ export default function StockCountSession() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Variances</Button>
+            <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Variances PDF</Button>
             {typeof navigator !== "undefined" && typeof navigator.canShare === "function" && (
               <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(true); }}><Share2 className="w-4 h-4" /> Share</Button>
             )}
@@ -560,7 +598,7 @@ export default function StockCountSession() {
 
         {canApply && (closed || submitted) && (
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Download variances</Button>
+            <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Variances PDF</Button>
             {typeof navigator !== "undefined" && typeof navigator.canShare === "function" && (
               <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(true); }}><Share2 className="w-4 h-4" /> Share</Button>
             )}
@@ -573,7 +611,7 @@ export default function StockCountSession() {
         {!closed && (
           <div className="flex flex-wrap gap-2">
             {canApply && live && (
-              <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Variances</Button>
+              <Button variant="outline" className="gap-2" onClick={function () { downloadVariances(false); }}><Download className="w-4 h-4" /> Variances PDF</Button>
             )}
             <Button variant="outline" className="gap-2 lg:hidden" onClick={function () { setShowRecent(!showRecent); }}>
               <History className="w-4 h-4" /> Last counted
