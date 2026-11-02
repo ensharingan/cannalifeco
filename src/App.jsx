@@ -57,6 +57,8 @@ import Membership from './pages/Membership';
 import PublicSign from './pages/PublicSign';
 import TillCashOuts from './pages/TillCashOuts';
 import StockCounts from './pages/StockCounts';
+import GRV from './pages/GRV';
+import Transfers from './pages/Transfers';
 import StockCountSession from './pages/StockCountSession';
 
 // Head Office is franchise-level (multi-store) control — owners and
@@ -148,6 +150,8 @@ const AuthenticatedApp = () => {
         <Route path="/membership" element={<Membership />} />
         <Route path="/products" element={<Products />} />
         <Route path="/inventory" element={<Inventory />} />
+        <Route path="/grv" element={<GRV />} />
+        <Route path="/transfers" element={<Transfers />} />
         <Route path="/stock-counts" element={<StockCounts />} />
         <Route path="/stock-counts/:id" element={<StockCountSession />} />
         <Route path="/print-labels" element={<PrintLabels />} />

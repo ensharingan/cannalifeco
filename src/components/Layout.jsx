@@ -10,7 +10,7 @@ import {
   LogOut, User, Store, Star, RotateCcw, Tag, Clock, BarChart2,
   Megaphone, TrendingUp, UserCircle,
   LifeBuoy, PackageSearch, ClipboardCheck, Sunset,
-  ReceiptText, Building2
+  ReceiptText, Building2, PackageCheck, Truck
 } from "lucide-react";
 import cannalifeLogo from '../cannalife-logo.png';
 import StoreSelector from "./StoreSelector";
@@ -50,6 +50,8 @@ const allNavItems = [
   { group: 'stock',  path: "/inventory",           label: "Inventory",           icon: Warehouse,       minRole: 'manager' },
   { group: 'stock',  path: "/inventory-analytics", label: "Inventory Analytics", icon: TrendingUp,      minRole: 'manager', sub: true },
   { group: 'stock',  path: "/stock-value-report",  label: "Stock Value Report",  icon: PackageSearch,   minRole: 'manager', sub: true },
+  { group: 'stock',  path: "/grv",                 label: "Goods Received",     icon: PackageCheck,    minRole: 'cashier' },
+  { group: 'stock',  path: "/transfers",           label: "Transfers",           icon: Truck,           minRole: 'cashier' },
   { group: 'stock',  path: "/stock-counts",        label: "Stock Counts",        icon: ClipboardCheck,  minRole: 'cashier' },
   { group: 'stock',  path: "/supplier-payments",   label: "Suppliers",           icon: DollarSign,      minRole: 'manager' },
   { group: 'stock',  path: "/supplier-returns",    label: "Supplier Returns",    icon: RotateCcw,       minRole: 'manager', sub: true },
