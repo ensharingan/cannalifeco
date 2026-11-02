@@ -1066,7 +1066,7 @@ export default function CartPanel({
               value={discountInput}
               onChange={function (e) { setDiscountInput(e.target.value); }}
               className="h-8 text-sm flex-1"
-              placeholder={discountType === "percentage" ? "10" : "50"} />
+              placeholder="0" />
           </div>
         ) : (
           <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
