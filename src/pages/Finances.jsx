@@ -81,6 +81,10 @@ export default function Finances() {
   const [filterPayment, setFilterPayment] = useState("");
 
   const isOwner = profile?.role === "owner" || profile?.role === "superadmin";
+  // Cashiers/staff never choose the store: whatever they capture is booked to
+  // the branch they are working at. Managers and owners keep the picker.
+  const isStoreLocked = !!profile?.role && !["owner", "superadmin", "admin", "manager"].includes(profile.role);
+  const lockedStoreId = isStoreLocked ? (activeStoreId || profile?.store_id || null) : null;
 
   /* ── Package gate: per-store expense capture is a Growth feature ── */
   const planValues = [companyPlan.package, companyPlan.subscription_plan]
@@ -269,12 +273,15 @@ export default function Finances() {
   /* ── Add expense ── */
   const handleAddExpense = async () => {
     if (!expenseForm.description || !expenseForm.amount) return;
+    if (isStoreLocked && !lockedStoreId) { toast.error("No store is set for you. Open your till at your store first."); return; }
     setIsSaving(true);
     try {
       // On Growth the user picks the store (defaulting to the active one).
       // On Starter every expense is booked to the active store so single-store
       // clubs still get correct attribution without exposing the picker.
-      const storeId = perStoreEnabled
+      const storeId = isStoreLocked
+        ? lockedStoreId
+        : perStoreEnabled
         ? expenseForm.store_id || null
         : activeStoreId || (stores.length === 1 ? stores[0].id : null);
 
@@ -668,7 +675,14 @@ export default function Finances() {
             </div>
 
             {/* Store / Branch — Growth plan only */}
-            {perStoreEnabled ? (
+            {isStoreLocked ? (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <span className="text-muted-foreground">Booked to: </span>
+                <span className="font-medium">
+                  {stores.find((s) => s.id === lockedStoreId)?.name || ctxStores?.find?.((s) => s.id === lockedStoreId)?.name || "your store"}
+                </span>
+              </div>
+            ) : perStoreEnabled ? (
               <div>
                 <Label className="flex items-center gap-2">
                   Store / Branch

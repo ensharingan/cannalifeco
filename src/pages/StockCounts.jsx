@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useCompany } from "../lib/CompanyContext";
 import { cn } from "@/lib/utils";
 import { ClipboardCheck, Plus, Store as StoreIcon, EyeOff, ChevronRight } from "lucide-react";
 
@@ -36,6 +37,7 @@ function timeAgo(ts) {
 
 export default function StockCounts() {
   var navigate = useNavigate();
+  var { activeStoreId } = useCompany();
 
   var [profile, setProfile] = useState(null);
   var [stores, setStores] = useState([]);
@@ -93,6 +95,9 @@ export default function StockCounts() {
         if (cancelled) return;
         setStores(storeList);
         setForm(function (f) { return { ...f, store_id: storeList[0] ? storeList[0].id : "" }; });
+        if (activeStoreId && storeList.some(function (s) { return s.id === activeStoreId; })) {
+          setForm(function (f) { return { ...f, store_id: activeStoreId }; });
+        }
 
         var cRes = await supabase.from("products").select("category")
           .eq("company_id", prof.company_id).not("category", "is", null);
@@ -111,7 +116,7 @@ export default function StockCounts() {
     })();
 
     return function () { cancelled = true; };
-  }, [loadCounts]);
+  }, [loadCounts, activeStoreId]);
 
   var storeName = function (id) {
     for (var i = 0; i < stores.length; i++) { if (stores[i].id === id) return stores[i].name; }
@@ -125,6 +130,18 @@ export default function StockCounts() {
       return c.status === "cancelled";
     });
   }, [counts, tab]);
+
+  // One open count per store, but different stores never block each other.
+  // Map store -> its open count so the dialog can send the user to Resume
+  // instead of failing on Start.
+  var openByStore = useMemo(function () {
+    var m = {};
+    counts.forEach(function (c) {
+      if ((c.status === "in_progress" || c.status === "paused") && !m[c.store_id]) m[c.store_id] = c;
+    });
+    return m;
+  }, [counts]);
+  var formOpenCount = form.store_id ? openByStore[form.store_id] : null;
 
   var dueCount = counts.filter(function (c) {
     return c.status === "in_progress" || c.status === "paused";
@@ -253,10 +270,15 @@ export default function StockCounts() {
                 <SelectTrigger className="h-10"><SelectValue placeholder="Pick a store" /></SelectTrigger>
                 <SelectContent>
                   {stores.map(function (s) {
-                    return <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>;
+                    return <SelectItem key={s.id} value={s.id}>{s.name}{openByStore[s.id] ? " — count open" : ""}</SelectItem>;
                   })}
                 </SelectContent>
               </Select>
+              {formOpenCount && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  {storeName(form.store_id)} already has a count open. Resume it, or pick another store — other stores are not affected.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -325,11 +347,18 @@ export default function StockCounts() {
 
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={function () { setShowNew(false); }}>Cancel</Button>
-              <Button className="flex-1 font-semibold"
-                disabled={creating || !form.store_id || (form.scope === "category" && !form.categories.length)}
-                onClick={createCount}>
-                {creating ? "Starting..." : "Start counting"}
-              </Button>
+              {formOpenCount ? (
+                <Button className="flex-1 font-semibold"
+                  onClick={function () { setShowNew(false); navigate("/stock-counts/" + formOpenCount.id); }}>
+                  Resume count
+                </Button>
+              ) : (
+                <Button className="flex-1 font-semibold"
+                  disabled={creating || !form.store_id || (form.scope === "category" && !form.categories.length)}
+                  onClick={createCount}>
+                  {creating ? "Starting..." : "Start counting"}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
