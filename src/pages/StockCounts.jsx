@@ -98,6 +98,13 @@ export default function StockCounts() {
             var oRes = await supabase.from("stores").select("id, name").eq("id", prof.store_id).single();
             if (oRes.data) storeList = [oRes.data];
           }
+          // A manager with no store assignment on file keeps seeing every store
+          // (as before) rather than ending up with an empty list.
+          if (!storeList.length && MANAGER_ROLES.indexOf(prof.role) !== -1) {
+            var mRes = await supabase.from("stores").select("id, name")
+              .eq("company_id", prof.company_id).eq("is_active", true).order("name");
+            storeList = mRes.data || [];
+          }
         }
         if (cancelled) return;
         setStores(storeList);
