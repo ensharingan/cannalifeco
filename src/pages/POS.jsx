@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { Search, QrCode, X, ShoppingCart, ScanLine, Scale, Receipt, CheckCircle, UserCheck, AlertTriangle, Tag, Banknote, PackageSearch, RefreshCw, Ticket, CreditCard, Lock, Store, Wallet, ShoppingBag, UserPlus, Truck } from "lucide-react";
+import { Search, QrCode, X, ShoppingCart, ScanLine, Scale, Receipt, CheckCircle, UserCheck, AlertTriangle, Tag, Banknote, PackageSearch, RefreshCw, Ticket, CreditCard, Lock, Store, Wallet, ShoppingBag, UserPlus, Truck, PenLine } from "lucide-react";
 import BarcodeScanner from "../components/pos/BarcodeScanner";
 import useBarcodeScanner from "../hooks/useBarcodeScanner";
 import {
@@ -281,6 +281,9 @@ export default function POS() {
   var [cart, setCart] = useState([]);
   var [searchTerm, setSearchTerm] = useState("");
   var [deliveryAmount, setDeliveryAmount] = useState("");
+  // Custom sale: a manual line for stock that has arrived but is not loaded yet.
+  var [showCustomSale, setShowCustomSale] = useState(false);
+  var [customSale, setCustomSale] = useState({ name: "", price: "", qty: "1", cost: "" });
   var [selectedCategory, setSelectedCategory] = useState("");
   var [selectedPromo, setSelectedPromo] = useState(null);
   var [selectedMember, setSelectedMember] = useState(null);
@@ -1191,6 +1194,36 @@ export default function POS() {
     toast.success("Delivery R" + amt.toFixed(2) + " added");
   }, [deliveryAmount, storeMismatch, requireOpenSession, activeSession, selectedMember, activeStoreName, selectorStoreName]);
 
+  // Custom sale: lets a cashier ring up an item that is not on the system yet
+  // (stock received but not loaded). Same shape as the Delivery line: no
+  // product row (product_id null), so checkout's stock loop skips it and no
+  // inventory is touched. Each add is its own line. Name is stored on the sale
+  // item so reports/receipts show what was sold; load the stock properly later.
+  var addCustomSaleToCart = useCallback(function () {
+    if (storeMismatch) { toast.error("Sort out the store first — your session is at " + activeStoreName + " but the selector says " + selectorStoreName + "."); return; }
+    if (requireOpenSession && !activeSession) { toast.error("Open the day before ringing up a sale"); return; }
+    if (selectedMember && selectedMember.is_banned) { toast.error("This member is banned and cannot make purchases"); return; }
+    var nm = String(customSale.name || "").trim();
+    var price = Math.round(Number(String(customSale.price).replace(",", ".")) * 100) / 100;
+    var qty = Number(String(customSale.qty).replace(",", "."));
+    var cost = customSale.cost === "" ? 0 : Math.round(Number(String(customSale.cost).replace(",", ".")) * 100) / 100;
+    if (!nm) { toast.error("Enter what is being sold"); return; }
+    if (!isFinite(price) || price <= 0) { toast.error("Enter the selling price"); return; }
+    if (!isFinite(qty) || qty <= 0) { toast.error("Enter a quantity"); return; }
+    if (!isFinite(cost) || cost < 0) { toast.error("Cost must be zero or more"); return; }
+    setCart(function (prev) {
+      return prev.concat([{
+        _cart_key: "custom:" + Date.now() + ":" + prev.length, product_id: null, name: nm + " (custom)", price: price, qty: qty,
+        stock: 999999, grams_per_unit: 1, unit_weight: null, product_type: null, category: "custom",
+        cost_price: cost, sku: null, supplier_id: null, promo_id: null, promo_name: null,
+        line_discount: 0, line_discount_type: "rand",
+      }]);
+    });
+    setCustomSale({ name: "", price: "", qty: "1", cost: "" });
+    setShowCustomSale(false);
+    toast.success("Custom sale added: " + nm);
+  }, [customSale, storeMismatch, requireOpenSession, activeSession, selectedMember, activeStoreName, selectorStoreName]);
+
   var handleProductSelect = useCallback(function (product) {
     // Hard stop. While the session's branch and the selector disagree there is
     // no safe answer to "which store is this coming off", so nothing goes in
@@ -1869,6 +1902,10 @@ export default function POS() {
                 </Button>
               </div>
 
+              <Button variant="outline" onClick={function () { setShowCustomSale(true); }} disabled={storeMismatch} className="gap-1.5 whitespace-nowrap shrink-0" title="Sell an item that is not loaded on the system yet">
+                <PenLine className="w-4 h-4" /> Custom Sale
+              </Button>
+
               {/* ── SELL VOUCHER ── the only place money is taken ── */}
               {voucherMode && (
                 <Button
@@ -2357,6 +2394,37 @@ export default function POS() {
                   {issuingVoucher ? "Issuing..." : "Issue Voucher"}
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showCustomSale} onOpenChange={function (open) { if (!open) setShowCustomSale(false); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><PenLine className="h-5 w-5 text-green-600" /> Custom Sale</DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-muted-foreground">For stock that has arrived but is not loaded yet. Stock levels are not changed — load the stock on the system afterwards.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">What is being sold</label>
+                <Input autoFocus value={customSale.name} onChange={function (e) { setCustomSale({ ...customSale, name: e.target.value }); }} placeholder="e.g. Blue Dream 3.5g" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Price (R)</label>
+                  <Input type="number" inputMode="decimal" min="0" step="0.01" value={customSale.price} onChange={function (e) { setCustomSale({ ...customSale, price: e.target.value }); }} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Qty</label>
+                  <Input type="number" inputMode="decimal" min="0" step="1" value={customSale.qty} onChange={function (e) { setCustomSale({ ...customSale, qty: e.target.value }); }} />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Cost per unit (R, optional)</label>
+                <Input type="number" inputMode="decimal" min="0" step="0.01" value={customSale.cost} onChange={function (e) { setCustomSale({ ...customSale, cost: e.target.value }); }}
+                  onKeyDown={function (e) { if (e.key === "Enter") { e.preventDefault(); addCustomSaleToCart(); } }} />
+              </div>
+              <Button className="w-full" onClick={addCustomSaleToCart}>Add to cart</Button>
             </div>
           </DialogContent>
         </Dialog>
