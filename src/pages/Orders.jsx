@@ -423,7 +423,8 @@ export default function Orders() {
   var hideTotals = isCashier && !!ps.hide_totals_from_cashiers;
   var historyLimit = (isCashier && Number(ps.cashier_history_limit) > 0)
     ? Number(ps.cashier_history_limit) : null;
-  var canRefund = !isCashier || ps.cashier_can_refund !== false;
+  // Cashiers cannot refund / return from Orders; managers and owners can.
+  var canRefund = !isCashier;
   var alwaysRestock = !!ps.refund_always_restock;
 
   var [orders, setOrders] = useState([]);
@@ -736,16 +737,16 @@ export default function Orders() {
 
   // Cash -> card correction on a sale. Never touches refunds. The database
   // function enforces who may do it (cashiers: own store, till still open).
+  var PAY_LABELS = { cash: 'CASH', card: 'CARD', payment_link: 'PAY LINK' };
   var handleChangeToCard = async function (order, newMethod) {
-    if (!order) return;
-    newMethod = newMethod || 'card';
-    var label = newMethod === 'payment_link' ? 'PAY LINK' : 'CARD';
-    if (!window.confirm('Change this sale from CASH to ' + label + '? The till totals will move with it.')) return;
+    if (!order || !newMethod) return;
+    var fromLabel = PAY_LABELS[String(order.payment_method || '').toLowerCase()] || String(order.payment_method || '').toUpperCase();
+    if (!window.confirm('Change this sale from ' + fromLabel + ' to ' + PAY_LABELS[newMethod] + '? The till totals will move with it.')) return;
     setChangingPayment(true);
     try {
       var res = await supabase.rpc('change_order_payment_method', { p_order_id: order.id, p_new_method: newMethod });
       if (res.error) throw res.error;
-      toast.success('Payment changed to ' + (newMethod === 'payment_link' ? 'pay link' : 'card'));
+      toast.success('Payment changed to ' + PAY_LABELS[newMethod].toLowerCase());
       setViewOrder(null);
       await loadOrders();
     } catch (err) {
@@ -1484,18 +1485,20 @@ export default function Orders() {
                   <Receipt className="w-4 h-4" /> Reprint Slip
                 </Button>
               )}
-              {viewOrder.status === 'completed' && String(viewOrder.payment_method || '').toLowerCase() === 'cash'
+              {viewOrder.status === 'completed' && ['cash', 'card', 'payment_link'].includes(String(viewOrder.payment_method || '').toLowerCase())
                 && refundedAmount(viewOrder) === 0 && viewOrder.order_type !== 'pre_order' && (
-                <>
-                  <Button variant="outline" className="w-full gap-2" disabled={changingPayment}
-                    onClick={function () { handleChangeToCard(viewOrder, 'card'); }}>
-                    <CreditCard className="w-4 h-4" /> {changingPayment ? 'Changing...' : 'Change payment: Cash → Card'}
-                  </Button>
-                  <Button variant="outline" className="w-full gap-2" disabled={changingPayment}
-                    onClick={function () { handleChangeToCard(viewOrder, 'payment_link'); }}>
-                    <CreditCard className="w-4 h-4" /> {changingPayment ? 'Changing...' : 'Change payment: Cash → Pay Link'}
-                  </Button>
-                </>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Change payment to:</p>
+                  {['cash', 'card', 'payment_link'].filter(function (m) { return m !== String(viewOrder.payment_method || '').toLowerCase(); }).map(function (m) {
+                    return (
+                      <Button key={m} variant="outline" className="w-full gap-2" disabled={changingPayment}
+                        onClick={function () { handleChangeToCard(viewOrder, m); }}>
+                        {m === 'cash' ? <Banknote className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
+                        {changingPayment ? 'Changing...' : (m === 'cash' ? 'Cash' : m === 'card' ? 'Card' : 'Pay Link')}
+                      </Button>
+                    );
+                  })}
+                </div>
               )}
               {viewOrder.payment_changed_from && (
                 <p className="text-xs text-muted-foreground">
