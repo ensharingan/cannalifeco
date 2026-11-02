@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import { supabase } from '@/api/supabaseClient';
 import { useSearchParams } from "react-router-dom";
 import { Plus, Search, Trash2, Upload, Truck, Eye } from "lucide-react";
@@ -19,7 +19,7 @@ const statusColors = {
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyHeader = () => ({ supplier_id: "", store_id: "", received_date: today(), delivery_note_no: "", notes: "", request_id: "" });
+const emptyHeader = () => ({ supplier_id: "", store_id: "", received_date: today(), delivery_note_no: "", notes: "", request_id: "", short_reasons: {} });
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 async function loadAllProducts(companyId) {
@@ -39,7 +39,8 @@ async function loadAllProducts(companyId) {
 }
 
 export default function GoodsReceiving() {
-  const { companyId } = useCompany();
+  const { companyId, role } = useCompany();
+  const isMgr = ['owner', 'admin', 'manager', 'superadmin', 'head_office', 'supervisor'].includes(role);
   const [grns, setGrns] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [stores, setStores] = useState([]);
@@ -71,7 +72,7 @@ export default function GoodsReceiving() {
         supabase.from('stores').select('id, name, type, is_active').eq('company_id', companyId).order('name'),
         loadAllProducts(companyId),
         supabase.rpc('ws_my_stores'),
-        supabase.from('stock_requests').select('id, request_number, store_id, supplier_id, status, requested_date').eq('company_id', companyId).in('status', ['requested', 'partial']).order('created_at', { ascending: false }),
+        supabase.from('stock_requests').select('id, request_number, store_id, supplier_id, status, requested_date').eq('company_id', companyId).eq('status', 'issued').order('created_at', { ascending: false }),
       ]);
       const allowed = new Set(mine.data || []);
       setRequests(rq.data || []);
@@ -105,8 +106,9 @@ export default function GoodsReceiving() {
     return vatReg && vt === 'standard' ? r2(r2(l.quantity * l.unit_cost) * 0.15) : 0;
   };
   const totals = useMemo(() => {
-    const ex = lines.reduce((s, l) => s + r2((Number(l.quantity) || 0) * (Number(l.unit_cost) || 0)), 0);
-    const vat = lines.reduce((s, l) => s + lineVat(l), 0);
+    const live = lines.filter(l => !l.gone);
+    const ex = live.reduce((s, l) => s + r2((Number(l.quantity) || 0) * (Number(l.unit_cost) || 0)), 0);
+    const vat = live.reduce((s, l) => s + lineVat(l), 0);
     return { ex: r2(ex), vat: r2(vat), inc: r2(ex + vat) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, vatReg, productById]);
@@ -137,12 +139,12 @@ export default function GoodsReceiving() {
     const req = requests.find(r => r.id === reqId);
     const { data, error } = await supabase.from('stock_request_lines').select('*').eq('request_id', reqId).order('product_name');
     if (error || !req) { toast.error('Could not load that request'); return; }
-    setHeader(h => ({ ...h, request_id: reqId, store_id: req.store_id, supplier_id: req.supplier_id }));
-    setLines((data || []).filter(l => Number(l.quantity) - Number(l.received_quantity) > 0).map(l => {
+    setHeader(h => ({ ...h, request_id: reqId, store_id: req.store_id, supplier_id: req.supplier_id, short_reasons: {} }));
+    setLines((data || []).filter(l => Number(l.issued_quantity) > 0).map(l => {
       const p = productById[l.product_id];
-      return { product_id: l.product_id, product_name: l.product_name, sku: l.sku, quantity: Number(l.quantity) - Number(l.received_quantity), unit_cost: Number(p?.cost_price) || 0, vat_type: p?.vat_type || 'standard' };
+      return { product_id: l.product_id, product_name: l.product_name, sku: l.sku, quantity: Number(l.issued_quantity), max: Number(l.issued_quantity), requested: Number(l.quantity), gone: false, unit_cost: Number(p?.cost_price) || 0, vat_type: p?.vat_type || 'standard' };
     }));
-    toast.success(`${req.request_number} loaded: check the counts against what actually arrived`);
+    toast.success(`${req.request_number} loaded: this is what the stock room issued. Lower a quantity only if less arrived.`);
   };
 
   // Arriving from Stock Requests > Receive
@@ -161,12 +163,27 @@ export default function GoodsReceiving() {
     setEditingId(g.id); setReadOnly(g.status !== 'draft'); setGrnNumber(g.grn_number);
     setHeader({
       supplier_id: g.supplier_id || "", store_id: g.store_id || "",
-      received_date: g.received_date || today(), delivery_note_no: g.delivery_note_no || "", notes: g.notes || "", request_id: g.request_id || "",
+      received_date: g.received_date || today(), delivery_note_no: g.delivery_note_no || "", notes: g.notes || "", request_id: g.request_id || "", short_reasons: g.short_reasons || {},
     });
-    setLines((data || []).map(l => ({
-      product_id: l.product_id, product_name: l.product_name, sku: l.sku,
-      quantity: Number(l.quantity), unit_cost: Number(l.unit_cost), vat_type: l.vat_type,
-    })));
+    let reqLines = [];
+    if (g.request_id) {
+      const rq = await supabase.from('stock_request_lines').select('*').eq('request_id', g.request_id).order('product_name');
+      reqLines = rq.data || [];
+    }
+    const have = new Set((data || []).map(l => l.product_id));
+    const base = (data || []).map(l => {
+      const rl = reqLines.find(x => x.product_id === l.product_id);
+      return {
+        product_id: l.product_id, product_name: l.product_name, sku: l.sku,
+        quantity: Number(l.quantity), unit_cost: Number(l.unit_cost), vat_type: l.vat_type,
+        ...(rl ? { max: Number(rl.issued_quantity), requested: Number(rl.quantity), gone: false } : {}),
+      };
+    });
+    const missing = reqLines.filter(rl => Number(rl.issued_quantity) > 0 && !have.has(rl.product_id)).map(rl => ({
+      product_id: rl.product_id, product_name: rl.product_name, sku: rl.sku, quantity: 0,
+      max: Number(rl.issued_quantity), requested: Number(rl.quantity), gone: true, unit_cost: 0,
+    }));
+    setLines([...base, ...missing]);
     setProdSearch(""); setShowPaste(false);
     setOpen(true);
   };
@@ -234,15 +251,27 @@ export default function GoodsReceiving() {
   const save = async (post) => {
     if (!header.supplier_id) return toast.error('Choose a supplier');
     if (!header.store_id) return toast.error('Choose the store receiving the stock');
-    if (lines.length === 0) return toast.error('Add at least one product');
-    if (lines.some(l => !(Number(l.quantity) > 0))) return toast.error('Every line needs a quantity above zero');
+    const active = lines.filter(l => !l.gone);
+    if (active.length === 0) return toast.error(header.request_id ? 'Nothing was received. Cancel the request instead.' : 'Add at least one product');
+    if (active.some(l => !(Number(l.quantity) > 0))) return toast.error('Every line needs a quantity above zero');
+    const reasons = {};
+    if (header.request_id) {
+      for (const l of lines) {
+        const short = l.gone || Number(l.quantity) < l.max;
+        const why = (header.short_reasons?.[l.product_id] || '').trim();
+        if (short && !why) return toast.error(`${l.product_name}: issued ${l.max}, received ${l.gone ? 0 : l.quantity}. Say why it is short`);
+        if (short) reasons[l.product_id] = why;
+      }
+    } else if (simple && !isMgr) {
+      return toast.error('Stock room stock is received against a request the stock room has issued. Pick the request first');
+    }
     if (post && !window.confirm(`Post ${grnNumber || 'this GRV'} and add stock to ${storeById[header.store_id]?.name || 'the store'}? This cannot be undone.`)) return;
     setSaving(true);
     try {
       const { data, error } = await supabase.rpc('grv_save', {
         p_grn_id: editingId,
-        p_header: { ...header },
-        p_lines: lines.map(l => ({ product_id: l.product_id, quantity: Number(l.quantity), unit_cost: Number(l.unit_cost) || 0, vat_type: l.vat_type || productById[l.product_id]?.vat_type || 'standard' })),
+        p_header: { ...header, short_reasons: reasons },
+        p_lines: active.map(l => ({ product_id: l.product_id, quantity: Number(l.quantity), unit_cost: Number(l.unit_cost) || 0, vat_type: l.vat_type || productById[l.product_id]?.vat_type || 'standard' })),
         p_post: !!post,
       });
       if (error) throw error;
@@ -363,9 +392,14 @@ export default function GoodsReceiving() {
             </div>
           </div>
 
+          {!readOnly && simple && !isMgr && !header.request_id && requests.length === 0 && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+              There is nothing issued to this store yet. Stock room stock can only be received once the stock room has issued your request (Stock Requests).
+            </div>
+          )}
           {!readOnly && (requests.length > 0 || header.request_id) && (
             <div className="max-w-md">
-              <Label>Receiving against a stock request (optional)</Label>
+              <Label>Stock request issued by the stock room{simple && !isMgr ? ' (required)' : ' (optional)'}</Label>
               <Select value={header.request_id || "none"} onValueChange={v => applyRequest(v === "none" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="No request" /></SelectTrigger>
                 <SelectContent>
@@ -378,7 +412,10 @@ export default function GoodsReceiving() {
             </div>
           )}
 
-          {!readOnly && (
+          {!readOnly && header.request_id && (
+            <p className="text-sm text-muted-foreground">These lines are what the stock room issued. You can only lower a quantity (say why), never raise it.</p>
+          )}
+          {!readOnly && !header.request_id && (
             <div className="space-y-2">
               <div className="flex gap-2 items-start">
                 <div className="relative flex-1">
@@ -416,9 +453,14 @@ export default function GoodsReceiving() {
                 {lines.length === 0 ? (
                   <tr><td colSpan={simple ? 3 : 6} className="p-6 text-center text-muted-foreground">Scan or search to add products</td></tr>
                 ) : lines.map((l, i) => (
-                  <tr key={l.product_id} className="border-t">
-                    <td className="p-2"><div className="font-medium">{l.product_name}</div><div className="text-xs text-muted-foreground">{l.sku}</div></td>
-                    <td className="p-2"><Input type="number" min="0" step="any" disabled={readOnly} value={l.quantity} onChange={e => setLine(i, 'quantity', e.target.value)} /></td>
+                  <Fragment key={l.product_id}>
+                  <tr className={cn("border-t", l.gone && "opacity-60")}>
+                    <td className="p-2"><div className="font-medium">{l.product_name}</div><div className="text-xs text-muted-foreground">{l.sku}{l.max != null ? ` · requested ${l.requested}, issued ${l.max}` : ''}</div></td>
+                    <td className="p-2"><Input type="number" min="0" step="any" max={l.max} disabled={readOnly || l.gone} value={l.gone ? 0 : l.quantity} onChange={e => {
+                      let v = e.target.value;
+                      if (l.max != null && v !== '' && Number(v) > l.max) v = String(l.max);
+                      setLine(i, 'quantity', v);
+                    }} /></td>
                     {!simple && <><td className="p-2"><Input type="number" min="0" step="0.01" disabled={readOnly} value={l.unit_cost} onChange={e => setLine(i, 'unit_cost', e.target.value)} /></td>
                     <td className="p-2 text-right">
                       <Select disabled={readOnly} value={l.vat_type || productById[l.product_id]?.vat_type || 'standard'} onValueChange={v => setLine(i, 'vat_type', v)}>
@@ -432,8 +474,20 @@ export default function GoodsReceiving() {
                       <div className="text-xs text-muted-foreground mt-1">{formatCurrency(lineVat(l))}</div>
                     </td>
                     <td className="p-2 text-right">{formatCurrency(r2((Number(l.quantity) || 0) * (Number(l.unit_cost) || 0)))}</td></>}
-                    <td className="p-2">{!readOnly && <Button size="icon" variant="ghost" onClick={() => removeLine(i)}><Trash2 className="w-4 h-4 text-red-500" /></Button>}</td>
+                    <td className="p-2">{!readOnly && (l.max != null
+                      ? <Button size="sm" variant="ghost" className="text-xs" onClick={() => setLine(i, 'gone', !l.gone)}>{l.gone ? 'Restore' : 'Not received'}</Button>
+                      : <Button size="icon" variant="ghost" onClick={() => removeLine(i)}><Trash2 className="w-4 h-4 text-red-500" /></Button>)}</td>
                   </tr>
+                  {l.max != null && (l.gone || Number(l.quantity) < l.max) && (
+                    <tr>
+                      <td colSpan={simple ? 3 : 6} className="px-2 pb-2">
+                        <Input disabled={readOnly} className="h-8 text-xs border-amber-500/50" placeholder={`Issued ${l.max}, received ${l.gone ? 0 : (l.quantity || 0)}. Why is it short? (required)`}
+                          value={header.short_reasons?.[l.product_id] || ''}
+                          onChange={e => setHeader(h => ({ ...h, short_reasons: { ...(h.short_reasons || {}), [l.product_id]: e.target.value } }))} />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

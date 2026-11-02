@@ -13,11 +13,13 @@ import { useCompany } from "../lib/CompanyContext";
 
 const statusStyle = {
   requested: "bg-blue-500/10 text-blue-600 border-blue-200",
+  issued: "bg-violet-500/10 text-violet-600 border-violet-200",
   partial: "bg-amber-500/10 text-amber-600 border-amber-200",
   received: "bg-green-500/10 text-green-600 border-green-200",
   cancelled: "bg-red-500/10 text-red-600 border-red-200",
 };
-const statusLabel = { requested: "Requested", partial: "Part received", received: "Received", cancelled: "Cancelled" };
+const statusLabel = { requested: "Waiting for stock room", issued: "Issued: store must receive", partial: "Part received", received: "Received", cancelled: "Cancelled" };
+const MGR = ['owner', 'admin', 'manager', 'superadmin', 'head_office', 'supervisor'];
 const today = () => new Date().toISOString().slice(0, 10);
 const num = (v) => Number(v) || 0;
 
@@ -34,8 +36,10 @@ async function loadAllProducts(companyId) {
 }
 
 export default function StockRequests() {
-  const { companyId } = useCompany();
+  const { companyId, role } = useCompany();
+  const isMgr = MGR.includes(role);
   const navigate = useNavigate();
+  const [issue, setIssue] = useState(null);     // { req, lines, qty: {lineId: n}, notes }
   const [rows, setRows] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [stores, setStores] = useState([]);
@@ -73,7 +77,7 @@ export default function StockRequests() {
 
   const supName = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s.name])), [suppliers]);
   const storeName = useMemo(() => Object.fromEntries(stores.map(s => [s.id, s.name])), [stores]);
-  const filtered = rows.filter(r => statusFilter === 'all' ? true : statusFilter === 'open' ? ['requested', 'partial'].includes(r.status) : r.status === statusFilter);
+  const filtered = rows.filter(r => statusFilter === 'all' ? true : statusFilter === 'open' ? ['requested', 'issued', 'partial'].includes(r.status) : r.status === statusFilter);
 
   const newRequest = () => {
     const internal = suppliers.filter(s => s.is_internal);
@@ -133,8 +137,30 @@ export default function StockRequests() {
     setView({ req: r, lines: data || [] });
   };
 
+  const openIssue = async (r) => {
+    const { data, error } = await supabase.from('stock_request_lines').select('*').eq('request_id', r.id).order('product_name');
+    if (error) return toast.error('Could not load lines');
+    setView(null);
+    setIssue({ req: r, lines: data || [], qty: Object.fromEntries((data || []).map(l => [l.id, String(num(l.quantity))])), notes: "" });
+  };
+
+  const submitIssue = async () => {
+    const lines = issue.lines.map(l => ({ line_id: l.id, issued_quantity: num(issue.qty[l.id]) }));
+    if (lines.some(l => l.issued_quantity < 0)) return toast.error('Quantities cannot be negative');
+    if (!lines.some(l => l.issued_quantity > 0)) return toast.error('Nothing to issue. Cancel the request instead');
+    if (!window.confirm(`Issue ${issue.req.request_number} to ${storeName[issue.req.store_id]}? The store will have to receive exactly this.`)) return;
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.rpc('stock_request_issue', { p_id: issue.req.id, p_lines: lines, p_notes: issue.notes });
+      if (error) throw error;
+      toast.success(`${data.request_number} issued: ${data.units} units`);
+      setIssue(null); load();
+    } catch (e) { toast.error(e.message || 'Could not issue'); }
+    finally { setSaving(false); }
+  };
+
   const cancelReq = async (r) => {
-    const msg = r.status === 'partial' ? `Close ${r.request_number}? What has not arrived yet will no longer be expected.` : `Cancel ${r.request_number}?`;
+    const msg = `Cancel ${r.request_number}?`;
     if (!window.confirm(msg)) return;
     const { error } = await supabase.rpc('stock_request_cancel', { p_id: r.id });
     if (error) return toast.error(error.message);
@@ -151,8 +177,8 @@ export default function StockRequests() {
       <h2>Stock request ${esc(req.request_number)}</h2>
       <p>Store: <b>${esc(storeName[req.store_id])}</b> &nbsp; From: <b>${esc(supName[req.supplier_id])}</b> &nbsp; Date: ${esc(req.requested_date)}</p>
       ${req.notes ? `<p>${esc(req.notes)}</p>` : ''}
-      <table><tr><th>Description</th><th>Requested</th><th>Sent</th><th>Received</th></tr>
-      ${ls.map(l => `<tr><td>${esc(l.product_name)}</td><td>${num(l.quantity)}</td><td></td><td></td></tr>`).join('')}</table>
+      <table><tr><th>Description</th><th>Requested</th><th>Issued</th><th>Received</th></tr>
+      ${ls.map(l => `<tr><td>${esc(l.product_name)}</td><td>${num(l.quantity)}</td><td>${l.issued_quantity == null ? '' : num(l.issued_quantity)}</td><td>${req.status === 'received' ? num(l.received_quantity) : ''}</td></tr>`).join('')}</table>
       <p style="margin-top:28px">Sent by: ____________________ &nbsp;&nbsp; Received by: ____________________</p>
       <script>window.onload=function(){window.print()}</script></body></html>`);
     w.document.close();
@@ -195,7 +221,8 @@ export default function StockRequests() {
                   <td className="p-3"><span className={cn("px-2 py-0.5 rounded-full border text-xs", statusStyle[r.status])}>{statusLabel[r.status]}</span></td>
                   <td className="p-3 text-right whitespace-nowrap">
                     <Button size="sm" variant="ghost" onClick={() => openView(r)}><Eye className="w-4 h-4 mr-1" />View</Button>
-                    {['requested', 'partial'].includes(r.status) && <Button size="sm" onClick={() => navigate(`/goods-receiving?request=${r.id}`)}><Truck className="w-4 h-4 mr-1" />Receive</Button>}
+                    {r.status === 'requested' && isMgr && <Button size="sm" onClick={() => openIssue(r)}><Truck className="w-4 h-4 mr-1" />Issue stock</Button>}
+                    {r.status === 'issued' && <Button size="sm" onClick={() => navigate(`/goods-receiving?request=${r.id}`)}><Truck className="w-4 h-4 mr-1" />Receive</Button>}
                   </td>
                 </tr>
               ))}
@@ -263,16 +290,19 @@ export default function StockRequests() {
             <DialogHeader><DialogTitle>{view.req.request_number}: {storeName[view.req.store_id]} from {supName[view.req.supplier_id]}</DialogTitle></DialogHeader>
             <div className="border rounded-lg overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left"><tr><th className="p-2">Product</th><th className="p-2 text-right">Requested</th><th className="p-2 text-right">Received</th><th className="p-2 text-right">Still due</th></tr></thead>
+                <thead className="bg-muted/50 text-left"><tr><th className="p-2">Product</th><th className="p-2 text-right">Requested</th><th className="p-2 text-right">Issued</th><th className="p-2 text-right">Received</th></tr></thead>
                 <tbody>
                   {view.lines.map(l => {
-                    const due = Math.max(0, num(l.quantity) - num(l.received_quantity));
+                    const iss = l.issued_quantity == null ? null : num(l.issued_quantity);
+                    const done = view.req.status === 'received';
+                    const short = done && iss != null && num(l.received_quantity) < iss;
+                    const notIssued = iss != null && iss < num(l.quantity);
                     return (
                       <tr key={l.id} className="border-t">
-                        <td className="p-2">{l.product_name}</td>
+                        <td className="p-2">{l.product_name}{short && l.short_reason && <div className="text-xs text-amber-600">Short: {l.short_reason}</div>}</td>
                         <td className="p-2 text-right tabular-nums">{num(l.quantity)}</td>
-                        <td className="p-2 text-right tabular-nums">{num(l.received_quantity)}</td>
-                        <td className={cn("p-2 text-right tabular-nums", due > 0 && view.req.status !== 'requested' && "text-amber-600 font-medium")}>{due}</td>
+                        <td className={cn("p-2 text-right tabular-nums", notIssued && "text-amber-600")}>{iss == null ? '-' : iss}</td>
+                        <td className={cn("p-2 text-right tabular-nums", short && "text-red-500 font-medium")}>{done ? num(l.received_quantity) : '-'}</td>
                       </tr>
                     );
                   })}
@@ -281,8 +311,41 @@ export default function StockRequests() {
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={printReq}>Print</Button>
-              {['requested', 'partial'].includes(view.req.status) && <Button variant="outline" className="text-red-600" onClick={() => cancelReq(view.req)}>{view.req.status === 'partial' ? 'Close request' : 'Cancel request'}</Button>}
-              {['requested', 'partial'].includes(view.req.status) && <Button onClick={() => navigate(`/goods-receiving?request=${view.req.id}`)}>Receive stock</Button>}
+              {(view.req.status === 'requested' || (view.req.status === 'issued' && isMgr)) && <Button variant="outline" className="text-red-600" onClick={() => cancelReq(view.req)}>Cancel request</Button>}
+              {view.req.status === 'requested' && isMgr && <Button onClick={() => openIssue(view.req)}>Issue stock</Button>}
+              {view.req.status === 'issued' && <Button onClick={() => navigate(`/goods-receiving?request=${view.req.id}`)}>Receive stock</Button>}
+            </div>
+          </>)}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!issue} onOpenChange={o => { if (!o) setIssue(null); }}>
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+          {issue && (<>
+            <DialogHeader><DialogTitle>Issue {issue.req.request_number} to {storeName[issue.req.store_id]}</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">Enter what you are actually sending. The store can only receive up to this amount, so count it before you confirm. Use 0 for anything you cannot send.</p>
+            <div className="border rounded-lg overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left"><tr><th className="p-2">Product</th><th className="p-2 text-right w-28">Requested</th><th className="p-2 w-32">Issuing</th></tr></thead>
+                <tbody>
+                  {issue.lines.map(l => (
+                    <tr key={l.id} className="border-t">
+                      <td className="p-2">{l.product_name}</td>
+                      <td className="p-2 text-right tabular-nums">{num(l.quantity)}</td>
+                      <td className="p-2"><Input type="number" min="0" max={num(l.quantity)} step="any" value={issue.qty[l.id]}
+                        onChange={e => { let v = e.target.value; if (v !== '' && Number(v) > num(l.quantity)) v = String(num(l.quantity)); setIssue(s => ({ ...s, qty: { ...s.qty, [l.id]: v } })); }} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Input value={issue.notes} onChange={e => setIssue(s => ({ ...s, notes: e.target.value }))} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIssue(null)}>Close</Button>
+              <Button disabled={saving} onClick={submitIssue}>Issue stock</Button>
             </div>
           </>)}
         </DialogContent>
