@@ -185,6 +185,7 @@ export default function ReceiptModal({ receipt, onClose }) {
       });
       lines.push(rule);
       if (o.discount_amount > 0) lines.push({ t: "row", left: "Discount", right: "-" + formatAmount(o.discount_amount) });
+      if (o.discount_amount > 0 && o.discount_note) lines.push({ t: "text", text: "Reason: " + o.discount_note });
       lines.push({ t: "row", left: "TOTAL", right: formatAmount(o.total_amount), size: "big", bold: true });
       lines.push({ t: "gap" });
       lines.push({ t: "center", text: "Thank you for your visit!", bold: false });
@@ -385,7 +386,7 @@ export default function ReceiptModal({ receipt, onClose }) {
     "*Items:*",
     ...items.map(function (i) { return "• " + i.name + " x" + i.quantity + " — " + formatCurrency(i.price * i.quantity); }),
     "",
-    ...(order.discount_amount > 0 ? ["\uD83D\uDC9A Discount: -" + formatCurrency(order.discount_amount)] : []),
+    ...(order.discount_amount > 0 ? ["\uD83D\uDC9A Discount: -" + formatCurrency(order.discount_amount) + (order.discount_note ? " (" + order.discount_note + ")" : "")] : []),
     "\uD83D\uDCB3 Payment: " + paymentLabel,
     ...paymentLines,
     "",
@@ -453,6 +454,9 @@ export default function ReceiptModal({ receipt, onClose }) {
             <div className="flex justify-between text-green-600">
               <span>Discount</span><span>-{formatAmount(order.discount_amount)}</span>
             </div>
+          )}
+          {order.discount_amount > 0 && order.discount_note && (
+            <div className="text-xs text-muted-foreground">Reason: {order.discount_note}</div>
           )}
           <div className="flex justify-between font-bold text-sm">
             <span>TOTAL</span><span>{formatAmount(order.total_amount)}</span>

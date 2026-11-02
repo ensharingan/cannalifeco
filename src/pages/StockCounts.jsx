@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { ClipboardCheck, Plus, Store as StoreIcon, EyeOff, ChevronRight } from "lucide-react";
 
 var MANAGER_ROLES = ["owner", "admin", "manager", "superadmin"];
+// Only these see every store's counts; store managers and cashiers see their own stores only.
+var COMPANY_WIDE_ROLES = ["owner", "admin", "superadmin"];
 
 var STATUS_STYLES = {
   in_progress: "bg-green-500/10 text-green-500",
@@ -41,7 +43,7 @@ export default function StockCounts() {
 
   var [profile, setProfile] = useState(null);
   var [stores, setStores] = useState([]);
-  var [counts, setCounts] = useState([]);
+  var [allCounts, setCounts] = useState([]);
   var [categories, setCategories] = useState([]);
   var [tab, setTab] = useState("due");
   var [loading, setLoading] = useState(true);
@@ -51,6 +53,11 @@ export default function StockCounts() {
   var [form, setForm] = useState({ store_id: "", scope: "all", categories: [], blind: true, name: "" });
 
   var isManager = profile && MANAGER_ROLES.indexOf(profile.role) !== -1;
+
+  // Owner/admin see every store's counts; everyone else only their own stores'.
+  var counts = (profile && COMPANY_WIDE_ROLES.indexOf(profile.role) === -1)
+    ? allCounts.filter(function (c) { return stores.some(function (st) { return st.id === c.store_id; }); })
+    : allCounts;
 
   var loadCounts = useCallback(async function (who) {
     if (!who) return;
@@ -80,7 +87,7 @@ export default function StockCounts() {
         setProfile(prof);
 
         var storeList = [];
-        if (MANAGER_ROLES.indexOf(prof.role) !== -1) {
+        if (COMPANY_WIDE_ROLES.indexOf(prof.role) !== -1) {
           var sRes = await supabase.from("stores").select("id, name")
             .eq("company_id", prof.company_id).eq("is_active", true).order("name");
           storeList = sRes.data || [];
