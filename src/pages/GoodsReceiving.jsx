@@ -95,7 +95,9 @@ export default function GoodsReceiving() {
   const supplier = supplierById[header.supplier_id];
   const vatReg = !!supplier?.vat_registered;
   // Internal sources (e.g. the stock room) send stock with no invoice: no prices, VAT or delivery note
-  const simple = !!supplier?.is_internal;
+  const internal = !!supplier?.is_internal;
+  // Only managers see or set prices: everyone else just receives quantities (the server also enforces this)
+  const simple = internal || !isMgr;
   const staleDrafts = useMemo(() => grns.filter(g => g.status === 'draft' && g.received_date && g.received_date < today()), [grns]);
   const lastKey = 'grv_last_receive';
   const readLast = () => { try { return JSON.parse(localStorage.getItem(lastKey) || '{}'); } catch { return {}; } };
@@ -262,7 +264,7 @@ export default function GoodsReceiving() {
         if (short && !why) return toast.error(`${l.product_name}: issued ${l.max}, received ${l.gone ? 0 : l.quantity}. Say why it is short`);
         if (short) reasons[l.product_id] = why;
       }
-    } else if (simple && !isMgr) {
+    } else if (internal && !isMgr) {
       return toast.error('Stock room stock is received against a request the stock room has issued. Pick the request first');
     }
     if (post && !window.confirm(`Post ${grnNumber || 'this GRV'} and add stock to ${storeById[header.store_id]?.name || 'the store'}? This cannot be undone.`)) return;
@@ -332,7 +334,7 @@ export default function GoodsReceiving() {
             <tr>
               <th className="p-3">GRV</th><th className="p-3">Date</th><th className="p-3">Supplier</th>
               <th className="p-3">Store</th><th className="p-3">Delivery note</th>
-              <th className="p-3 text-right">Total incl.</th><th className="p-3">Status</th><th className="p-3"></th>
+              {isMgr && <th className="p-3 text-right">Total incl.</th>}<th className="p-3">Status</th><th className="p-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -347,7 +349,7 @@ export default function GoodsReceiving() {
                 <td className="p-3">{supplierById[g.supplier_id]?.name || '-'}</td>
                 <td className="p-3">{storeById[g.store_id]?.name || '-'}</td>
                 <td className="p-3">{g.delivery_note_no || '-'}</td>
-                <td className="p-3 text-right">{formatCurrency(g.total_incl || 0)}</td>
+                {isMgr && <td className="p-3 text-right">{formatCurrency(g.total_incl || 0)}</td>}
                 <td className="p-3"><span className={cn("px-2 py-0.5 rounded-full border text-xs capitalize", statusColors[g.status])}>{g.status}</span></td>
                 <td className="p-3 text-right whitespace-nowrap">
                   <Button size="sm" variant="ghost" onClick={() => openGrv(g)}><Eye className="w-4 h-4 mr-1" />{g.status === 'draft' ? 'Edit' : 'View'}</Button>
@@ -372,7 +374,7 @@ export default function GoodsReceiving() {
                 <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
                 <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
-              {header.supplier_id && simple && <p className="text-xs text-muted-foreground mt-1">Internal source: just scan and enter quantities. No prices or VAT needed.</p>}
+              {header.supplier_id && simple && <p className="text-xs text-muted-foreground mt-1">Just scan and enter the quantities received. Prices are handled by management.</p>}
               {header.supplier_id && !simple && <p className="text-xs text-muted-foreground mt-1">{vatReg ? 'VAT registered: 15% VAT added on lines set to VAT. Change a line to Zero rated or Non-VAT in the VAT column.' : 'Not VAT registered: no VAT is charged on any line'}</p>}
             </div>
             <div>
@@ -387,19 +389,19 @@ export default function GoodsReceiving() {
               <Input type="date" disabled={readOnly} value={header.received_date} onChange={e => setHeader(h => ({ ...h, received_date: e.target.value }))} />
             </div>
             <div>
-              <Label>{simple ? 'Reference (optional)' : 'Supplier delivery note no.'}</Label>
+              <Label>{internal ? 'Reference (optional)' : 'Supplier delivery note no.'}</Label>
               <Input disabled={readOnly} value={header.delivery_note_no} onChange={e => setHeader(h => ({ ...h, delivery_note_no: e.target.value }))} />
             </div>
           </div>
 
-          {!readOnly && simple && !isMgr && !header.request_id && requests.length === 0 && (
+          {!readOnly && internal && !isMgr && !header.request_id && requests.length === 0 && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
               There is nothing issued to this store yet. Stock room stock can only be received once the stock room has issued your request (Stock Requests).
             </div>
           )}
           {!readOnly && (requests.length > 0 || header.request_id) && (
             <div className="max-w-md">
-              <Label>Stock request issued by the stock room{simple && !isMgr ? ' (required)' : ' (optional)'}</Label>
+              <Label>Stock request issued by the stock room{internal && !isMgr ? ' (required)' : ' (optional)'}</Label>
               <Select value={header.request_id || "none"} onValueChange={v => applyRequest(v === "none" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="No request" /></SelectTrigger>
                 <SelectContent>
