@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "../lib/currency";
 import {
   ArrowLeft, Search, ScanLine, Pause, Play, CheckCircle, Check,
-  Trash2, EyeOff, AlertTriangle, History, ClipboardCheck, Download, Share2, RotateCcw,
+  Trash2, EyeOff, AlertTriangle, History, ClipboardCheck, Download, Share2, RotateCcw, ChevronDown, ChevronRight,
 } from "lucide-react";
 
 var PAGE = 300;
@@ -26,6 +26,7 @@ export default function StockCountSession() {
   var [search, setSearch] = useState("");
   var [category, setCategory] = useState("");
   var [catList, setCatList] = useState([]);
+  var [collapsed, setCollapsed] = useState({});
   var [code, setCode] = useState("");
   var [qty, setQty] = useState("1");
   var [quickScan, setQuickScan] = useState(false);
@@ -765,17 +766,26 @@ export default function StockCountSession() {
             )}
 
             {items.map(function (r, i) {
-              var showHead = !["variance","over","short"].includes(filter) &&
-                (i === 0 || (items[i - 1].category || "") !== (r.category || ""));
+              var grouped = !["variance","over","short"].includes(filter);
+              var catKey = r.category || "Uncategorised";
+              var showHead = grouped && (i === 0 || (items[i - 1].category || "") !== (r.category || ""));
+              var isCollapsed = grouped && !!collapsed[catKey];
+              var inCat = showHead ? items.filter(function (x) { return (x.category || "") === (r.category || ""); }) : null;
+              var doneInCat = inCat ? inCat.filter(function (x) { return x.counted_qty !== null && x.counted_qty !== undefined; }).length : 0;
               var diff = r.variance === null || r.variance === undefined ? null : Number(r.variance);
               var isCounted = r.counted_qty !== null && r.counted_qty !== undefined;
               return (
                 <React.Fragment key={r.product_id}>
                 {showHead && (
-                  <div className="px-3 py-1.5 bg-muted/60 border-b border-border text-xs font-semibold uppercase tracking-wide text-foreground">
-                    {r.category || "Uncategorised"}
-                  </div>
+                  <button type="button"
+                    onClick={function () { var n = Object.assign({}, collapsed); n[catKey] = !collapsed[catKey]; setCollapsed(n); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 bg-muted/60 border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-foreground hover:bg-muted">
+                    {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    <span>{catKey}</span>
+                    <span className="ml-auto font-normal normal-case text-muted-foreground">{doneInCat} / {inCat.length} counted</span>
+                  </button>
                 )}
+                {!isCollapsed && (
                 <div
                   className={cn("grid items-center gap-3 px-3 py-3 border-b border-border/50 last:border-0 transition-colors",
                     masked ? "grid-cols-[24px_1fr_auto]" : "grid-cols-[24px_1fr_auto_auto]",
@@ -812,6 +822,7 @@ export default function StockCountSession() {
                       onKeyDown={function (e) { if (e.key === "Enter") e.currentTarget.blur(); }} />
                   </div>
                 </div>
+                )}
                 </React.Fragment>
               );
             })}
