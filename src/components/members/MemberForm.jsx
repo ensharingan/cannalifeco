@@ -72,7 +72,10 @@ var FICA_STATUS_CONFIG = {
 export default function MemberForm({ form, setForm, onSave, onCancel, member, isSaving, companyId }) {
   var formData = form || (member ? initForm(member) : { ...EMPTY_FORM });
   var companyCtx = useCompany() || {};
-  var homeStores = companyCtx.stores || [];
+  // Warehouses can't be a member's home club (kept only if already assigned).
+  var homeStores = (companyCtx.stores || []).filter(function (st) {
+    return st.type !== "warehouse" || st.id === formData.home_store_id;
+  });
   var defaultStoreId = companyCtx.activeStoreId || "";
   var [showCamera, setShowCamera] = useState(false);
   var [cameraReady, setCameraReady] = useState(false);
