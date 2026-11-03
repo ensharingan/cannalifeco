@@ -31,9 +31,20 @@ const DM_DPI_X = 160;
 const DM_DPI_Y = 72;
 const DM_SCALE = DM_DPI_X / 25.4; // px per mm while laying out (square pixels), squashed vertically at the end
 
-export function isDotMatrixMode() {
-  try { return localStorage.getItem("receipt_printer_mode") === "dotmatrix76"; } catch (e) { return false; }
+// Per-device receipt mode: "dotmatrix76" (76mm impact printers) or "thermal72" (80mm-paper thermal printers whose
+// driver only prints 72mm, e.g. XP-80C "80(72.1) x 297 mm": build the slip at exactly 72mm so Chrome/the driver
+// never rescale it). Set once by opening the POS with ?receipt=thermal72 (or ?receipt=off to clear).
+function getReceiptMode() {
+  try {
+    const q = new URLSearchParams(window.location.search).get("receipt");
+    if (q === "off") localStorage.removeItem("receipt_printer_mode");
+    else if (q === "thermal72" || q === "dotmatrix76") localStorage.setItem("receipt_printer_mode", q);
+    return localStorage.getItem("receipt_printer_mode");
+  } catch (e) { return null; }
 }
+export function isDotMatrixMode() { return getReceiptMode() === "dotmatrix76"; }
+const T72_PAGE_W_MM = 72;
+const T72_MARGIN_MM = 1;
 
 function wrap(ctx, text, maxW) {
   const words = String(text == null ? "" : text).split(/\s+/);
@@ -58,10 +69,10 @@ function loadImage(src) {
   });
 }
 
-async function renderCanvas(spec, dm, bw) {
+async function renderCanvas(spec, dm, bw, t72) {
   const S = dm ? DM_SCALE : SCALE;
-  const pageW = dm ? DM_PAGE_W_MM : PAGE_W_MM;
-  const margin = dm ? DM_MARGIN_MM : MARGIN_MM;
+  const pageW = dm ? DM_PAGE_W_MM : (t72 ? T72_PAGE_W_MM : PAGE_W_MM);
+  const margin = dm ? DM_MARGIN_MM : (t72 ? T72_MARGIN_MM : MARGIN_MM);
   const wPx = Math.round(pageW * S);
   const padPx = margin * S;
   const innerW = wPx - padPx * 2;
@@ -193,10 +204,12 @@ export async function buildReceiptPdf(spec) {
 // using --kiosk-printing and the HPRT set as the Windows default printer, this prints
 // straight to the printer with no dialog.
 export async function printReceipt(spec) {
-  const dm = isDotMatrixMode();
-  const canvas = await renderCanvas(spec, dm, true);
+  const mode = getReceiptMode();
+  const dm = mode === "dotmatrix76";
+  const t72 = mode === "thermal72";
+  const canvas = await renderCanvas(spec, dm, true, t72);
   const src = canvas.toDataURL("image/png");
-  const wMm = dm ? DM_PAGE_W_MM : PAGE_W_MM;
+  const wMm = dm ? DM_PAGE_W_MM : (t72 ? T72_PAGE_W_MM : PAGE_W_MM);
   const imgH = dm ? "height:" + canvas._hMm.toFixed(2) + "mm" : "height:auto";
 
   return new Promise((resolve, reject) => {
