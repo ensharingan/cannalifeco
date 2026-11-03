@@ -86,7 +86,7 @@ export default function CustomerPortal() {
         <div className="bg-card border border-border rounded-xl p-4">
           <h2 className="font-semibold">Welcome{member ? `, ${member.first_name}` : ""}! 👋</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            {member ? `Member ID: ${member.membership_id} · Points: ${member.loyalty_points || 0}` : "Browse our available products below."}
+            {member ? `Member ID: ${member.membership_id}` : "Browse our available products below."}
           </p>
         </div>
 

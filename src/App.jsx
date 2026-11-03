@@ -29,7 +29,6 @@ import Settings from './pages/Settings';
 import Stores from './pages/Stores';
 import HeadOffice from './pages/HeadOffice';
 import MemberRegister from './pages/MemberRegister';
-import Loyalty from './pages/Loyalty';
 import SupplierReturns from './pages/SupplierReturns';
 import SupplierPayments from './pages/SupplierPayments';
 import Promotions from './pages/Promotions';
@@ -163,7 +162,7 @@ const AuthenticatedApp = () => {
         <Route path="/stores" element={<Stores />} />
         <Route path="/head-office" element={<HeadOfficeGuard><HeadOffice /></HeadOfficeGuard>} />
         <Route path="/register" element={<MemberRegister />} />
-        <Route path="/loyalty" element={<Loyalty />} />
+        <Route path="/loyalty" element={<Navigate to="/" replace />} />
         <Route path="/supplier-returns" element={<SupplierReturns />} />
         <Route path="/supplier-payments" element={<SupplierPayments />} />
         <Route path="/promotions" element={<Promotions />} />

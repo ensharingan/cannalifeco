@@ -595,7 +595,7 @@ function MemberPortalSettings({ companyId, companyName }) {
         <div className="flex flex-col sm:flex-row gap-6 items-center">
           <div className="bg-[#0a0a0a] rounded-xl p-4 border border-border"><img src={portalQrUrl} alt="Member Portal QR Code" className="w-48 h-48 rounded-lg" /></div>
           <div className="flex-1 space-y-3">
-            <p className="text-sm text-muted-foreground">Display this QR at your counter. Members scan to view their membership card, loyalty points, and store menu.</p>
+            <p className="text-sm text-muted-foreground">Display this QR at your counter. Members scan to view their membership card and store menu.</p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => downloadQR(portalQrUrl, 'portal')}><Download className="w-4 h-4 mr-1" /> Download</Button>
               <Button size="sm" variant="outline" onClick={() => printQR(portalQrUrl, 'Member Portal', 'Scan to access your membership')}>🖨️ Print</Button>
@@ -621,7 +621,7 @@ function MemberPortalSettings({ companyId, companyName }) {
           <div>✅ Self-register via QR code (no app needed)</div>
           <div>✅ View their membership profile</div>
           <div>✅ See & download their membership card</div>
-          <div>✅ Check loyalty points & store credit</div>
+          <div>✅ Check store credit</div>
           <div>✅ Browse available menu / stock</div>
           <div>✅ Upload a profile photo</div>
         </div>

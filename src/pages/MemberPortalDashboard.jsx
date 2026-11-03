@@ -12,27 +12,6 @@ function getMember() {
   }
 }
 
-var TIER_META = {
-  bronze:   { emoji: "🥉", color: "#f59e0b", label: "BRONZE" },
-  silver:   { emoji: "🥈", color: "#94a3b8", label: "SILVER" },
-  gold:     { emoji: "🥇", color: "#fbbf24", label: "GOLD" },
-  platinum: { emoji: "💎", color: "#a78bfa", label: "PLATINUM" },
-};
-
-// The server decides the tier. The thresholds are only a fallback for the first
-// paint, before the refresh lands.
-function getTierInfo(member, thresholds) {
-  if (member && member.tier && TIER_META[member.tier]) return TIER_META[member.tier];
-  var points = (member && member.loyalty_points) || 0;
-  var s = thresholds.silver   ?? 500;
-  var g = thresholds.gold     ?? 1500;
-  var p = thresholds.platinum ?? 5000;
-  if (points >= p) return TIER_META.platinum;
-  if (points >= g) return TIER_META.gold;
-  if (points >= s) return TIER_META.silver;
-  return TIER_META.bronze;
-}
-
 function formatDate(d) {
   if (!d) return "N/A";
   var date = new Date(d);
@@ -108,7 +87,6 @@ export default function MemberPortalDashboard() {
   var [notifications, setNotifications] = useState([]);
   var [loadingNotifs, setLoadingNotifs] = useState(false);
   var [unreadCount, setUnreadCount] = useState(0);
-  var [thresholds, setThresholds] = useState({ bronze: 0, silver: 500, gold: 1500, platinum: 5000 });
   var [stores, setStores] = useState([]);
   var [selectedStore, setSelectedStore] = useState("");
   var [tabs, setTabs] = useState(null);
@@ -163,12 +141,6 @@ export default function MemberPortalDashboard() {
         if (res.data) {
           setCompanyName(res.data.trading_name || res.data.company_name || "");
           setCompanyLogo(res.data.logo_url || "");
-          setThresholds({
-            bronze:   res.data.loyalty_bronze   ?? 0,
-            silver:   res.data.loyalty_silver   ?? 500,
-            gold:     res.data.loyalty_gold     ?? 1500,
-            platinum: res.data.loyalty_platinum ?? 5000,
-          });
         }
       });
 
@@ -491,7 +463,6 @@ export default function MemberPortalDashboard() {
   // status/points strip and the bottom tagline. Avatar and shop-logo images
   // load asynchronously first so the export never ships a half-drawn card.
   var downloadCard = async function () {
-    var tierInfo = getTierInfo(member, thresholds);
     var canvas = document.createElement("canvas");
     canvas.width = 1000; canvas.height = 580;
     var ctx = canvas.getContext("2d");
@@ -585,8 +556,6 @@ export default function MemberPortalDashboard() {
     // Name / tier / membership id
     ctx.fillStyle = "#ffffff"; ctx.font = "bold 34px Arial";
     ctx.fillText((member.first_name + " " + member.last_name), 176, 208);
-    ctx.font = "bold 20px Arial"; ctx.fillStyle = tierInfo.color;
-    ctx.fillText(tierInfo.emoji + "  " + tierInfo.label + " MEMBER", 176, 240);
     ctx.font = "16px monospace"; ctx.fillStyle = "#8fae9a";
     ctx.fillText(member.membership_id || "", 176, 264);
 
@@ -602,10 +571,6 @@ export default function MemberPortalDashboard() {
     ctx.fillStyle = member.is_active ? "#0f8a58" : "#ef4444"; ctx.font = "bold 24px Arial";
     ctx.fillText(member.is_active ? "● ACTIVE" : "● INACTIVE", 66, stripY + 66);
 
-    ctx.fillStyle = "#6b7280"; ctx.font = "13px Arial";
-    ctx.fillText("POINTS", 346, stripY + 34);
-    ctx.fillStyle = "#fbbf24"; ctx.font = "bold 24px Arial";
-    ctx.fillText("★ " + (member.loyalty_points || 0).toLocaleString(), 346, stripY + 66);
 
     // Bottom-left tagline
     ctx.fillStyle = "#d4af37"; ctx.font = "bold 13px Arial";
@@ -624,7 +589,6 @@ export default function MemberPortalDashboard() {
 
   if (!member) return null;
 
-  var tierInfo = getTierInfo(member, thresholds);
   var tabBalance = tabs ? (parseFloat(tabs.balance) || 0) : 0;
   var openTabCount = tabs ? (parseInt(tabs.open_tabs, 10) || 0) : 0;
 
@@ -831,19 +795,11 @@ export default function MemberPortalDashboard() {
           <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
           <div style={s.headerNameBlock}>
             <div style={s.headerName}>{member.first_name} {member.last_name}</div>
-            <div style={s.headerTierRow}>
-              <span>{tierInfo.emoji}</span>
-              <span style={Object.assign({}, s.headerTierText, { color: tierInfo.color })}>{tierInfo.label} MEMBER</span>
-            </div>
             <div style={s.headerMemberId}>{member.membership_id}</div>
           </div>
         </div>
 
         <div style={s.statsBar}>
-          <div style={s.statCell}>
-            <div style={Object.assign({}, s.statCellVal, { color: "#fbbf24" })}>{(member.loyalty_points || 0).toLocaleString()}</div>
-            <div style={s.statCellLabel}>POINTS</div>
-          </div>
           <div style={s.statCell}>
             <div style={Object.assign({}, s.statCellVal, { color: "#0f8a58" })}>{(member.store_credit || 0).toFixed(0)}</div>
             <div style={s.statCellLabel}>CREDIT</div>
@@ -933,10 +889,6 @@ export default function MemberPortalDashboard() {
                           </div>
                           <div>
                             <div style={s.cardName}>{member.first_name} {member.last_name}</div>
-                            <div style={s.cardTierRow}>
-                              <span>{tierInfo.emoji}</span>
-                              <span style={Object.assign({}, s.cardTierText, { color: tierInfo.color })}>{tierInfo.label} MEMBER</span>
-                            </div>
                             <div style={s.cardMemberId}>{member.membership_id}</div>
                           </div>
                         </div>
@@ -947,10 +899,6 @@ export default function MemberPortalDashboard() {
                             <div style={Object.assign({}, s.cardStripVal, { color: member.is_active ? "#0f8a58" : "#ef4444" })}>
                               {member.is_active ? "● ACTIVE" : "● INACTIVE"}
                             </div>
-                          </div>
-                          <div style={s.cardStripCellLast}>
-                            <div style={s.cardStripLabel}>POINTS</div>
-                            <div style={Object.assign({}, s.cardStripVal, { color: "#fbbf24" })}>★ {(member.loyalty_points || 0).toLocaleString()}</div>
                           </div>
                         </div>
 

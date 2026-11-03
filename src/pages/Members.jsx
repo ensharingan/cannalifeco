@@ -823,15 +823,6 @@ export default function Members() {
                   <div><span className="text-muted-foreground text-xs">ID Number</span><p className="font-medium font-mono">{viewMember.id_number ? viewMember.id_number.substring(0, 4) + " **** " + viewMember.id_number.substring(10) : "N/A"}</p></div>
                   <div><span className="text-muted-foreground text-xs">Gender</span><p className="font-medium capitalize">{viewMember.gender || "N/A"}</p></div>
                   <div><span className="text-muted-foreground text-xs">Nationality</span><p className="font-medium">{viewMember.nationality || "N/A"}</p></div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Loyalty Tier</span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", tier.bg, tier.color)}>
-                        {tier.icon} {tier.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{(viewMember.loyalty_points || 0).toLocaleString()} pts</span>
-                    </div>
-                  </div>
                   <div><span className="text-muted-foreground text-xs">Total Spend</span><p className="font-medium">{formatCurrency(viewMember.total_spend || 0)}</p></div>
                   <div><span className="text-muted-foreground text-xs">Visits</span><p className="font-medium">{viewMember.visit_count || 0}</p></div>
                   <div><span className="text-muted-foreground text-xs">Type</span><p className="font-medium capitalize">{viewMember.membership_type || "bronze"}</p></div>
@@ -859,42 +850,6 @@ export default function Members() {
                   <div className="rounded-lg bg-muted/30 p-3">
                     <span className="text-muted-foreground text-xs">Notes</span>
                     <p className="text-sm">{viewMember.notes}</p>
-                  </div>
-                )}
-
-                {/* Loyalty → Wallet Redemption */}
-                {(viewMember.loyalty_points || 0) >= loyaltySettings.minRedeem && (
-                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Star className="w-4 h-4 text-primary" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Loyalty Points</p>
-                          <p className="text-lg font-bold text-primary">{(viewMember.loyalty_points || 0).toLocaleString()} pts</p>
-                        </div>
-                      </div>
-                      <Button size="sm" className="gap-1.5" onClick={openRedeem}>
-                        <Gift className="w-3.5 h-3.5" /> Redeem to Wallet
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {loyaltySettings.minRedeem} pts minimum · {(1 / loyaltySettings.redeemValue).toFixed(0)} pts = {formatCurrency(1)}
-                    </p>
-                  </div>
-                )}
-
-                {(viewMember.loyalty_points || 0) > 0 && (viewMember.loyalty_points || 0) < loyaltySettings.minRedeem && (
-                  <div className="rounded-xl border border-border bg-muted/30 p-4">
-                    <div className="flex items-center gap-2">
-                      <Star className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Loyalty Points</p>
-                        <p className="text-lg font-bold">{(viewMember.loyalty_points || 0).toLocaleString()} pts</p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {loyaltySettings.minRedeem - (viewMember.loyalty_points || 0)} more points needed to redeem (min {loyaltySettings.minRedeem})
-                    </p>
                   </div>
                 )}
 
@@ -948,36 +903,6 @@ export default function Members() {
         </DialogContent>
       </Dialog>
 
-      {/* Redeem Points Dialog */}
-      <Dialog open={showRedeem} onOpenChange={setShowRedeem}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Redeem Points to Wallet</DialogTitle></DialogHeader>
-          {viewMember && (
-            <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-lg text-sm">
-                <p className="font-medium">{viewMember.first_name} {viewMember.last_name}</p>
-                <p className="text-muted-foreground">Available: <span className="font-bold text-primary">{(viewMember.loyalty_points || 0).toLocaleString()} pts</span></p>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Points to redeem</label>
-                <Input type="number" min={loyaltySettings.minRedeem} max={viewMember.loyalty_points || 0} value={redeemPoints} onChange={function (e) { setRedeemPoints(Number(e.target.value)); }} />
-                <p className="text-xs text-muted-foreground mt-1">Min: {loyaltySettings.minRedeem} pts · Max: {(viewMember.loyalty_points || 0).toLocaleString()} pts</p>
-              </div>
-              <div className="p-3 bg-green-500/5 border border-green-500/20 rounded-lg">
-                <p className="text-xs text-muted-foreground">Credit to add</p>
-                <p className="text-xl font-bold text-green-500">{formatCurrency(redeemPoints * loyaltySettings.redeemValue)}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Current wallet: {formatCurrency(viewMember.store_credit || 0)} → New: {formatCurrency((viewMember.store_credit || 0) + redeemPoints * loyaltySettings.redeemValue)}
-                </p>
-              </div>
-              <Button onClick={handleRedeem} disabled={isRedeeming || redeemPoints < loyaltySettings.minRedeem || redeemPoints > (viewMember.loyalty_points || 0)} className="w-full gap-2">
-                <Gift className="w-4 h-4" />
-                {isRedeeming ? "Processing..." : "Redeem " + redeemPoints + " pts → " + formatCurrency(redeemPoints * loyaltySettings.redeemValue)}
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

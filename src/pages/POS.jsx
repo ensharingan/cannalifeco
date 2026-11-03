@@ -1779,7 +1779,6 @@ export default function POS() {
   var tierOptions = tierProduct ? getAllTiers(tierProduct) : [];
 
   var renderMemberRow = function (m, onSelect) {
-    var tier = getTierStyle(m.loyalty_points || 0, thresholds);
     var expired = getMembershipExpiry(m);
     return (
       <div key={m.id}
@@ -1797,9 +1796,6 @@ export default function POS() {
           <p className="text-sm font-medium truncate">{m.first_name} {m.last_name}</p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-xs text-muted-foreground truncate">{m.membership_id}</span>
-            <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full", tier.bg, tier.color)}>
-              {tier.icon} {tier.name}
-            </span>
             {expired && (
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 flex items-center gap-0.5">
                 ⚠️ Expired

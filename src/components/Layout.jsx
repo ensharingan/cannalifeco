@@ -63,7 +63,6 @@ const allNavItems = [
   { group: 'money',  path: "/end-of-day",          label: "End of Day",          icon: Sunset,          minRole: 'manager' },
   { group: 'money',  path: "/reports",             label: "Reports",             icon: BarChart2,       minRole: 'manager' },
 
-  { group: 'growth', path: "/loyalty",             label: "Loyalty",             icon: Star,            minRole: 'manager' },
   { group: 'growth', path: "/promotions",          label: "Promotions",          icon: Tag,             minRole: 'manager' },
   { group: 'growth', path: "/marketing",           label: "Marketing",           icon: Megaphone,       minRole: 'owner' },
 
