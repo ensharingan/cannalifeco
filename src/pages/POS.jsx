@@ -664,24 +664,45 @@ export default function POS() {
     return function () { clearTimeout(timeout); };
   }, [voucherMemberSearch, showVoucherDialog, companyId]);
 
+  // Returns the cashier's open session (or null). On a transient failure it
+  // returns undefined and leaves state alone, so a network blip can never wipe
+  // a session the till is already holding.
+  var refreshSession = useCallback(async function () {
+    if (!companyId) return undefined;
+    try {
+      var authRes = await supabase.auth.getUser();
+      var user = authRes.data ? authRes.data.user : null;
+      if (!user) return undefined;
+      var res = await supabase.from("cashier_sessions").select("*").eq("company_id", companyId)
+        .eq("cashier_id", user.id).eq("status", "open").order("opening_time", { ascending: false }).limit(1).maybeSingle();
+      if (res.error) return undefined;
+      setActiveSession(res.data || null);
+      return res.data || null;
+    } catch (_) { return undefined; }
+  }, [companyId]);
+
   useEffect(function () {
     if (!companyId) return;
-    var fetchSession = async function () {
-      try {
-        var authRes = await supabase.auth.getUser();
-        var user = authRes.data ? authRes.data.user : null;
-        if (!user) { setSessionResolved(true); return; }
-        var res = await supabase.from("cashier_sessions").select("*").eq("company_id", companyId)
-          .eq("cashier_id", user.id).eq("status", "open").order("opening_time", { ascending: false }).limit(1).maybeSingle();
-        setActiveSession(res.data || null);
-      } catch (_) { setActiveSession(null); } finally { setSessionResolved(true); }
-    };
-    fetchSession();
+    refreshSession().finally(function () { setSessionResolved(true); });
     var channel = supabase.channel("session-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "cashier_sessions", filter: "company_id=eq." + companyId }, function () { fetchSession(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "cashier_sessions", filter: "company_id=eq." + companyId }, function () { refreshSession(); })
       .subscribe();
-    return function () { supabase.removeChannel(channel); };
-  }, [companyId]);
+    // The realtime socket silently dies on tills left idle or on flaky
+    // internet. Re-check whenever the tab comes back or the network returns,
+    // so the cashier never has to refresh the page.
+    var onWake = function () { if (document.visibilityState !== "hidden") refreshSession(); };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    window.addEventListener("online", onWake);
+    var poll = setInterval(onWake, 60000);
+    return function () {
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+      window.removeEventListener("online", onWake);
+      clearInterval(poll);
+    };
+  }, [companyId, refreshSession]);
 
   // A session that opens or closes mid-shift changes which branch the till is
   // trading on. Anything already in the basket was priced and stock-checked
@@ -1339,7 +1360,14 @@ export default function POS() {
   };
 
   var handleCheckout = async function (checkoutData) {
-    if (!activeSession) { toast.error("No active cashier session. Please open a session before making sales."); return; }
+    if (!activeSession) {
+      // The screen can be stale while the database already has an open
+      // session. Re-check before blocking, instead of forcing a page refresh.
+      var fresh = await refreshSession();
+      if (fresh) { toast.info("Session synced — tap Charge again."); return; }
+      toast.error("No active cashier session. Please open a session before making sales.");
+      return;
+    }
     // Belt and braces. The grid is already blocked on a mismatch, but a basket
     // built before the selector moved must not be pushed through either.
     if (storeMismatch) {
@@ -1804,7 +1832,7 @@ export default function POS() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <CashierSessionBar />
+      <CashierSessionBar onSessionChange={setActiveSession} />
       <PromotionsBanner promotions={autoPromotions} />
 
       {openTabs.length > 0 && !hideOpenTabs && (
