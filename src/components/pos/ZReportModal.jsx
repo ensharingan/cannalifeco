@@ -43,6 +43,7 @@ async function buildReport(sessionId, companyId) {
     supabase.from("till_cash_outs").select("amount").eq("cashier_session_id", sessionId),
     supabase.from("products").select("id, name, category").eq("company_id", companyId),
     supabase.from("cashier_sessions").select("id", { count: "exact", head: true }).eq("company_id", companyId).lte("opening_time", s.opening_time),
+    supabase.rpc("budify_session_cash_expenses", { p_session: sessionId }),
   ]);
   var orders = (res[0].data || []).filter(function (o) { return LEDGER_METHODS.indexOf((o.payment_method || "").toLowerCase()) === -1; });
   var tabPays = res[1].data || [];
@@ -86,6 +87,8 @@ async function buildReport(sessionId, companyId) {
   Object.keys(tenders).forEach(function (k) { totalTendered += tenders[k]; });
   var refundTotal = 0; refunds.forEach(function (r) { refundTotal += n(r.total_amount); });
   var cashOutTotal = 0; cashOuts.forEach(function (c) { cashOutTotal += n(c.amount); });
+  // Cash expenses captured in Finances while this session was open
+  cashOutTotal += n(res[6] && res[6].data);
 
   var cashIn = (tenders["Cash"] || 0) + (tenders["Tab: Cash"] || 0);
   var opening = n(s.opening_float);
