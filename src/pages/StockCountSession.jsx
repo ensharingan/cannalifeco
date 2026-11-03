@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
@@ -23,6 +24,8 @@ export default function StockCountSession() {
   var [recent, setRecent] = useState([]);
   var [filter, setFilter] = useState("all");
   var [search, setSearch] = useState("");
+  var [category, setCategory] = useState("");
+  var [catList, setCatList] = useState([]);
   var [code, setCode] = useState("");
   var [qty, setQty] = useState("1");
   var [quickScan, setQuickScan] = useState(false);
@@ -51,6 +54,7 @@ export default function StockCountSession() {
       supabase.rpc("stock_count_summary", { p_count_id: id }),
       supabase.rpc("stock_count_items_list", {
         p_count_id: id, p_filter: f, p_search: s || null, p_limit: PAGE, p_offset: 0,
+        p_category: category || null,
       }),
       supabase.rpc("stock_count_recent", { p_count_id: id, p_limit: 15 }),
     ]);
@@ -59,7 +63,7 @@ export default function StockCountSession() {
     setSummary(results[0].data);
     setItems(results[1].data || []);
     setRecent(results[2].data || []);
-  }, [id, filter, search]);
+  }, [id, filter, search, category]);
 
   useEffect(function () {
     var cancelled = false;
@@ -89,7 +93,19 @@ export default function StockCountSession() {
     }, 250);
     return function () { clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filter]);
+  }, [search, filter, category]);
+
+  // Category chips: the distinct categories on this count, in alphabetical order
+  useEffect(function () {
+    if (!id) return;
+    supabase.from("stock_count_items").select("category").eq("count_id", id).limit(5000)
+      .then(function (res) {
+        if (res.error || !res.data) return;
+        var seen = {};
+        res.data.forEach(function (r) { seen[r.category || "Uncategorised"] = true; });
+        setCatList(Object.keys(seen).sort());
+      });
+  }, [id, loading]);
 
   async function submitCount() {
     var value = code.trim();
@@ -719,6 +735,22 @@ export default function StockCountSession() {
               onChange={function (e) { setSearch(e.target.value); }} />
           </div>
 
+          {catList.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
+              {[["", "All categories"]].concat(catList.map(function (c) { return [c === "Uncategorised" ? "" : c, c]; })).map(function (c, idx) {
+                if (idx > 0 && c[1] === "Uncategorised") return null;
+                var on = category === c[0];
+                return (
+                  <button key={c[1]} onClick={function () { setCategory(c[0]); }}
+                    className={cn("shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      on ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
+                    {c[1]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className={cn("grid gap-3 px-3 py-2.5 border-b border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground",
               masked ? "grid-cols-[24px_1fr_auto]" : "grid-cols-[24px_1fr_auto_auto]")}>
@@ -732,11 +764,19 @@ export default function StockCountSession() {
               <div className="py-12 text-center text-sm text-muted-foreground">Nothing to show here.</div>
             )}
 
-            {items.map(function (r) {
+            {items.map(function (r, i) {
+              var showHead = !["variance","over","short"].includes(filter) &&
+                (i === 0 || (items[i - 1].category || "") !== (r.category || ""));
               var diff = r.variance === null || r.variance === undefined ? null : Number(r.variance);
               var isCounted = r.counted_qty !== null && r.counted_qty !== undefined;
               return (
-                <div key={r.product_id}
+                <React.Fragment key={r.product_id}>
+                {showHead && (
+                  <div className="px-3 py-1.5 bg-muted/60 border-b border-border text-xs font-semibold uppercase tracking-wide text-foreground">
+                    {r.category || "Uncategorised"}
+                  </div>
+                )}
+                <div
                   className={cn("grid items-center gap-3 px-3 py-3 border-b border-border/50 last:border-0 transition-colors",
                     masked ? "grid-cols-[24px_1fr_auto]" : "grid-cols-[24px_1fr_auto_auto]",
                     isCounted && "bg-primary/[0.04]",
@@ -772,6 +812,7 @@ export default function StockCountSession() {
                       onKeyDown={function (e) { if (e.key === "Enter") e.currentTarget.blur(); }} />
                   </div>
                 </div>
+                </React.Fragment>
               );
             })}
           </div>
