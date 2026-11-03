@@ -58,7 +58,7 @@ function loadImage(src) {
   });
 }
 
-async function renderCanvas(spec, dm) {
+async function renderCanvas(spec, dm, bw) {
   const S = dm ? DM_SCALE : SCALE;
   const pageW = dm ? DM_PAGE_W_MM : PAGE_W_MM;
   const margin = dm ? DM_MARGIN_MM : MARGIN_MM;
@@ -87,6 +87,8 @@ async function renderCanvas(spec, dm) {
     ctx.drawImage(logo, (wPx - lw) / 2, y, lw, lhh);
     y += lhh + S;
   }
+
+  const textTop = Math.ceil(y);
 
   for (const ln of spec.lines || []) {
     const px = ln.size === "big" ? big : body;
@@ -139,7 +141,19 @@ async function renderCanvas(spec, dm) {
   out.width = wPx;
   if (!dm) {
     out.height = layoutH;
-    out.getContext("2d").drawImage(tall, 0, 0, wPx, layoutH, 0, 0, wPx, layoutH);
+    const c2 = out.getContext("2d");
+    c2.drawImage(tall, 0, 0, wPx, layoutH, 0, 0, wPx, layoutH);
+    if (bw && layoutH > textTop) {
+      // Thermal heads are 1-bit. Grey anti-aliased text gets dithered into scattered dots by some
+      // Windows drivers (eroded, speckled slips), so force pure black/white below the logo.
+      const id = c2.getImageData(0, textTop, wPx, layoutH - textTop);
+      for (let i = 0; i < id.data.length; i += 4) {
+        const v = id.data[i] * 0.3 + id.data[i + 1] * 0.59 + id.data[i + 2] * 0.11 < 200 ? 0 : 255;
+        id.data[i] = id.data[i + 1] = id.data[i + 2] = v;
+        id.data[i + 3] = 255;
+      }
+      c2.putImageData(id, 0, textTop);
+    }
     return out;
   }
   // Dot-matrix: squash vertically to the printer's 72 dpi row pitch, then force pure black/white
@@ -180,7 +194,7 @@ export async function buildReceiptPdf(spec) {
 // straight to the printer with no dialog.
 export async function printReceipt(spec) {
   const dm = isDotMatrixMode();
-  const canvas = await renderCanvas(spec, dm);
+  const canvas = await renderCanvas(spec, dm, true);
   const src = canvas.toDataURL("image/png");
   const wMm = dm ? DM_PAGE_W_MM : PAGE_W_MM;
   const imgH = dm ? "height:" + canvas._hMm.toFixed(2) + "mm" : "height:auto";
