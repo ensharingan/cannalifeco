@@ -20,6 +20,21 @@ const MARGIN_MM = 4; // 72mm printable
 const SCALE = 8;     // px per mm = 203dpi, the native resolution of HPRT TP80x heads (no driver resampling)
 const FONT = "Helvetica, Arial, sans-serif";
 
+// 76mm DOT-MATRIX (impact) printers such as the Xprinter XP-76C. They are not 203dpi thermal heads:
+// the driver offers 160x72 / 160x144 dpi, 63.5mm printable. Resampling a 203dpi slip onto that grid
+// produces doubled, squashed lines. In this mode the slip is drawn on the printer's own grid
+// (160 dpi across, 72 dpi down), binarised, and printed 1:1. Opt-in per device:
+//   localStorage.setItem("receipt_printer_mode", "dotmatrix76")   (clear it to go back to normal)
+const DM_PAGE_W_MM = 63.5;
+const DM_MARGIN_MM = 0.5;
+const DM_DPI_X = 160;
+const DM_DPI_Y = 72;
+const DM_SCALE = DM_DPI_X / 25.4; // px per mm while laying out (square pixels), squashed vertically at the end
+
+export function isDotMatrixMode() {
+  try { return localStorage.getItem("receipt_printer_mode") === "dotmatrix76"; } catch (e) { return false; }
+}
+
 function wrap(ctx, text, maxW) {
   const words = String(text == null ? "" : text).split(/\s+/);
   const out = [];
@@ -43,17 +58,20 @@ function loadImage(src) {
   });
 }
 
-async function renderCanvas(spec) {
-  const wPx = PAGE_W_MM * SCALE;
-  const padPx = MARGIN_MM * SCALE;
+async function renderCanvas(spec, dm) {
+  const S = dm ? DM_SCALE : SCALE;
+  const pageW = dm ? DM_PAGE_W_MM : PAGE_W_MM;
+  const margin = dm ? DM_MARGIN_MM : MARGIN_MM;
+  const wPx = Math.round(pageW * S);
+  const padPx = margin * S;
   const innerW = wPx - padPx * 2;
-  const body = Math.round(3.6 * SCALE); // ~10pt
-  const big = Math.round(4.6 * SCALE);
+  const body = Math.round(3.6 * S); // ~10pt
+  const big = Math.round(4.6 * S);
   const lh = (px) => Math.round(px * 1.35);
 
   const tall = document.createElement("canvas");
   tall.width = wPx;
-  tall.height = 600 * SCALE; // 600mm scratch height; cropped below
+  tall.height = 600 * S; // 600mm scratch height; cropped below
   const ctx = tall.getContext("2d");
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, tall.width, tall.height);
@@ -67,22 +85,22 @@ async function renderCanvas(spec) {
     const lw = Math.min(innerW * 0.7, logo.width);
     const lhh = lw * (logo.height / logo.width);
     ctx.drawImage(logo, (wPx - lw) / 2, y, lw, lhh);
-    y += lhh + SCALE;
+    y += lhh + S;
   }
 
   for (const ln of spec.lines || []) {
     const px = ln.size === "big" ? big : body;
     const font = (bold) => `${bold ? "bold " : ""}${px}px ${FONT}`;
 
-    if (ln.t === "gap") { y += SCALE; continue; }
+    if (ln.t === "gap") { y += S; continue; }
 
     if (ln.t === "rule") {
-      y += SCALE * 0.5;
-      const dash = SCALE * 0.9;
+      y += S * 0.5;
+      const dash = S * 0.9;
       for (let x = padPx; x < wPx - padPx; x += dash * 2) {
-        ctx.fillRect(x, y, Math.min(dash, wPx - padPx - x), Math.max(2, SCALE * 0.15));
+        ctx.fillRect(x, y, Math.min(dash, wPx - padPx - x), Math.max(2, S * 0.15));
       }
-      y += SCALE * 1.1;
+      y += S * 1.1;
       continue;
     }
 
@@ -104,7 +122,7 @@ async function renderCanvas(spec) {
       ctx.font = font(!!ln.bold);
       const right = String(ln.right == null ? "" : ln.right);
       const rightW = ctx.measureText(right).width;
-      const lines = wrap(ctx, ln.left, Math.max(innerW - rightW - SCALE, innerW * 0.4));
+      const lines = wrap(ctx, ln.left, Math.max(innerW - rightW - S, innerW * 0.4));
       lines.forEach((l, i) => {
         ctx.textAlign = "left";
         ctx.fillText(l, padPx, y);
@@ -116,10 +134,29 @@ async function renderCanvas(spec) {
 
   y += padPx * 1.5; // tail so the cutter does not clip the last line
 
+  const layoutH = Math.ceil(y);
   const out = document.createElement("canvas");
   out.width = wPx;
-  out.height = Math.ceil(y);
-  out.getContext("2d").drawImage(tall, 0, 0, wPx, out.height, 0, 0, wPx, out.height);
+  if (!dm) {
+    out.height = layoutH;
+    out.getContext("2d").drawImage(tall, 0, 0, wPx, layoutH, 0, 0, wPx, layoutH);
+    return out;
+  }
+  // Dot-matrix: squash vertically to the printer's 72 dpi row pitch, then force pure black/white
+  out.height = Math.max(1, Math.round(layoutH * (DM_DPI_Y / DM_DPI_X)));
+  const octx = out.getContext("2d");
+  octx.fillStyle = "#fff";
+  octx.fillRect(0, 0, out.width, out.height);
+  octx.imageSmoothingEnabled = true;
+  octx.drawImage(tall, 0, 0, wPx, layoutH, 0, 0, wPx, out.height);
+  const id = octx.getImageData(0, 0, out.width, out.height);
+  for (let i = 0; i < id.data.length; i += 4) {
+    const v = id.data[i] * 0.3 + id.data[i + 1] * 0.59 + id.data[i + 2] * 0.11 < 215 ? 0 : 255;
+    id.data[i] = id.data[i + 1] = id.data[i + 2] = v;
+    id.data[i + 3] = 255;
+  }
+  octx.putImageData(id, 0, 0);
+  out._hMm = layoutH / S; // real printed height in mm
   return out;
 }
 
@@ -142,8 +179,11 @@ export async function buildReceiptPdf(spec) {
 // using --kiosk-printing and the HPRT set as the Windows default printer, this prints
 // straight to the printer with no dialog.
 export async function printReceipt(spec) {
-  const canvas = await renderCanvas(spec);
+  const dm = isDotMatrixMode();
+  const canvas = await renderCanvas(spec, dm);
   const src = canvas.toDataURL("image/png");
+  const wMm = dm ? DM_PAGE_W_MM : PAGE_W_MM;
+  const imgH = dm ? "height:" + canvas._hMm.toFixed(2) + "mm" : "height:auto";
 
   return new Promise((resolve, reject) => {
     const iframe = document.createElement("iframe");
@@ -154,8 +194,8 @@ export async function printReceipt(spec) {
     doc.write(
       '<!doctype html><html><head><meta charset="utf-8"><style>' +
       "@page{margin:0}" +
-      "html,body{margin:0;padding:0;width:" + PAGE_W_MM + "mm;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
-      "img{display:block;width:" + PAGE_W_MM + "mm;height:auto}" +
+      "html,body{margin:0;padding:0;width:" + wMm + "mm;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
+      "img{display:block;width:" + wMm + "mm;" + imgH + (dm ? ";image-rendering:pixelated" : "") + "}" +
       '</style></head><body><img id="slip" src="' + src + '"></body></html>'
     );
     doc.close();
