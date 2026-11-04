@@ -142,6 +142,40 @@ function splitCashCard(order) {
   return { cash: amount / 2, card: amount / 2 };
 }
 
+// Per-method breakdown of one order: cash / card / eft / link / other.
+// Splits are broken into their real legs; a split with no leg data falls
+// back to the old 50/50 cash/card guess.
+var TENDER_KEYS = ['cash', 'card', 'eft', 'link', 'other'];
+
+function tenderBucket(method) {
+  var m = (method || '').toLowerCase().trim();
+  if (m === 'cash') return 'cash';
+  if (['card', 'credit card', 'debit card'].includes(m)) return 'card';
+  if (['eft', 'mobile'].includes(m)) return 'eft';
+  if (m === 'payment_link' || m === 'pay link' || m === 'paylink') return 'link';
+  return 'other';
+}
+
+function emptyTenders() {
+  return { cash: 0, card: 0, eft: 0, link: 0, other: 0 };
+}
+
+function orderTenders(order) {
+  var out = emptyTenders();
+  var amount = parseFloat(order.total_amount) || 0;
+  if (getPaymentGroup(order.payment_method) === 'split') {
+    var legs = paymentLegs(order.payment_details);
+    if (legs.length) {
+      for (var i = 0; i < legs.length; i++) out[tenderBucket(legs[i].method)] += legs[i].amount;
+    } else {
+      out.cash += amount / 2; out.card += amount / 2;
+    }
+    return out;
+  }
+  out[tenderBucket(order.payment_method)] += amount;
+  return out;
+}
+
 /* ─── Daily Sales Summary (cash vs card per day) ────────────────── */
 
 function DailySalesSummary({ orders }) {
@@ -151,12 +185,9 @@ function DailySalesSummary({ orders }) {
 
     for (var o of completed) {
       var dateStr = toLocalDateStr(new Date(o.created_at));
-      if (!byDate[dateStr]) byDate[dateStr] = { cash: 0, card: 0, orders: 0, refunds: 0 };
-      var amount = parseFloat(o.total_amount) || 0;
-      var group = getPaymentGroup(o.payment_method);
-      if (group === 'cash') byDate[dateStr].cash += amount;
-      else if (group === 'card') byDate[dateStr].card += amount;
-      else if (group === 'split') { var sp = splitCashCard(o); byDate[dateStr].cash += sp.cash; byDate[dateStr].card += sp.card; }
+      if (!byDate[dateStr]) byDate[dateStr] = { cash: 0, card: 0, eft: 0, link: 0, other: 0, orders: 0, refunds: 0 };
+      var t = orderTenders(o);
+      TENDER_KEYS.forEach(function (k) { byDate[dateStr][k] += t[k]; });
       byDate[dateStr].refunds += refundedAmount(o);
       byDate[dateStr].orders += 1;
     }
@@ -171,8 +202,11 @@ function DailySalesSummary({ orders }) {
           }),
           cash: d.cash,
           card: d.card,
+          eft: d.eft,
+          link: d.link,
+          other: d.other,
           refunds: d.refunds,
-          total: d.cash + d.card - d.refunds,
+          total: d.cash + d.card + d.eft + d.link + d.other - d.refunds,
           orders: d.orders,
         };
       });
@@ -181,6 +215,9 @@ function DailySalesSummary({ orders }) {
   if (days.length === 0) return null;
 
   var anyRefunds = days.some(function (d) { return d.refunds > 0; });
+  var anyEft = days.some(function (d) { return d.eft > 0; });
+  var anyLink = days.some(function (d) { return d.link > 0; });
+  var anyOther = days.some(function (d) { return d.other > 0; });
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -194,6 +231,8 @@ function DailySalesSummary({ orders }) {
           <span className="inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" /> Card
           </span>
+          {anyEft && (<span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-sky-500" /> EFT</span>)}
+          {anyLink && (<span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Pay Link</span>)}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -204,6 +243,9 @@ function DailySalesSummary({ orders }) {
               <th className="text-right p-3 text-xs font-semibold text-muted-foreground">Orders</th>
               <th className="text-right p-3 text-xs font-semibold text-green-500">Cash</th>
               <th className="text-right p-3 text-xs font-semibold text-yellow-500">Card</th>
+              {anyEft && <th className="text-right p-3 text-xs font-semibold text-sky-500">EFT</th>}
+              {anyLink && <th className="text-right p-3 text-xs font-semibold text-purple-500">Pay Link</th>}
+              {anyOther && <th className="text-right p-3 text-xs font-semibold text-muted-foreground">Other</th>}
               {anyRefunds && <th className="text-right p-3 text-xs font-semibold text-blue-400">Refunds</th>}
               <th className="text-right p-3 text-xs font-semibold text-muted-foreground">Net</th>
             </tr>
@@ -216,6 +258,9 @@ function DailySalesSummary({ orders }) {
                   <td className="p-3 text-right text-sm text-muted-foreground">{d.orders}</td>
                   <td className="p-3 text-right text-sm font-semibold text-green-500">{formatCurrency(d.cash)}</td>
                   <td className="p-3 text-right text-sm font-semibold text-yellow-500">{formatCurrency(d.card)}</td>
+                  {anyEft && <td className="p-3 text-right text-sm font-semibold text-sky-500">{formatCurrency(d.eft)}</td>}
+                  {anyLink && <td className="p-3 text-right text-sm font-semibold text-purple-500">{formatCurrency(d.link)}</td>}
+                  {anyOther && <td className="p-3 text-right text-sm font-semibold text-muted-foreground">{formatCurrency(d.other)}</td>}
                   {anyRefunds && (
                     <td className="p-3 text-right text-sm font-semibold text-blue-400">
                       {d.refunds > 0 ? '-' + formatCurrency(d.refunds) : '—'}
@@ -824,15 +869,15 @@ export default function Orders() {
     var grossRevenue = completed.reduce(function (sum, o) { return sum + (parseFloat(o.total_amount) || 0); }, 0);
     var refundTotal = completed.reduce(function (sum, o) { return sum + refundedAmount(o); }, 0);
     var totalRevenue = grossRevenue - refundTotal;
-    var cashSales = 0, cardSales = 0, storeCreditRedeemed = 0, storeCreditOrders = 0;
+    var cashSales = 0, cardSales = 0, eftSales = 0, linkSales = 0, otherSales = 0, storeCreditRedeemed = 0, storeCreditOrders = 0;
 
     completed.forEach(function (o) {
       var amount = parseFloat(o.total_amount) || 0;
       var creditApplied = parseFloat(o.credit_applied) || 0;
       var group = getPaymentGroup(o.payment_method);
-      if (group === 'cash') cashSales += amount;
-      else if (group === 'card') cardSales += amount;
-      else if (group === 'split') { var sp = splitCashCard(o); cashSales += sp.cash; cardSales += sp.card; }
+      var tn = orderTenders(o);
+      cashSales += tn.cash; cardSales += tn.card; eftSales += tn.eft; linkSales += tn.link;
+      if (group !== 'store_credit') otherSales += tn.other;
       if (creditApplied > 0) { storeCreditRedeemed += creditApplied; storeCreditOrders += 1; }
       else if (group === 'store_credit') { storeCreditRedeemed += amount; storeCreditOrders += 1; }
     });
@@ -848,7 +893,7 @@ export default function Orders() {
       totalOrders: filtered.length,
       completedOrders: completed.length,
       grossRevenue, totalRevenue, refundTotal,
-      cashSales, cardSales,
+      cashSales, cardSales, eftSales, linkSales, otherSales,
       storeCreditRedeemed, storeCreditOrders,
       avgOrder: completed.length ? totalRevenue / netCount : 0,
       itemsSold,
@@ -1052,7 +1097,7 @@ export default function Orders() {
         <>
           {/* Summary Cards — hidden when the club hides takings from cashiers */}
           {!hideTotals && (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
               <div className="bg-card rounded-xl border border-border p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <TrendingUp className="w-4 h-4" /><span className="text-xs font-medium">Revenue</span>
@@ -1074,11 +1119,31 @@ export default function Orders() {
               </div>
               <div className="bg-card rounded-xl border border-border p-4">
                 <div className="flex items-center gap-2 text-yellow-500 mb-1">
-                  <CreditCard className="w-4 h-4" /><span className="text-xs font-medium">Card / EFT</span>
+                  <CreditCard className="w-4 h-4" /><span className="text-xs font-medium">Card</span>
                 </div>
                 <p className="text-xl font-bold text-yellow-500">{formatCurrency(stats.cardSales)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {stats.grossRevenue ? Math.round((stats.cardSales / stats.grossRevenue) * 100) : 0}% of sales
+                </p>
+              </div>
+              {stats.eftSales > 0 && (
+                <div className="bg-card rounded-xl border border-border p-4">
+                  <div className="flex items-center gap-2 text-sky-500 mb-1">
+                    <CreditCard className="w-4 h-4" /><span className="text-xs font-medium">EFT / Mobile</span>
+                  </div>
+                  <p className="text-xl font-bold text-sky-500">{formatCurrency(stats.eftSales)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.grossRevenue ? Math.round((stats.eftSales / stats.grossRevenue) * 100) : 0}% of sales
+                  </p>
+                </div>
+              )}
+              <div className="bg-card rounded-xl border border-border p-4">
+                <div className="flex items-center gap-2 text-purple-500 mb-1">
+                  <CreditCard className="w-4 h-4" /><span className="text-xs font-medium">Pay Link</span>
+                </div>
+                <p className="text-xl font-bold text-purple-500">{formatCurrency(stats.linkSales)}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.grossRevenue ? Math.round((stats.linkSales / stats.grossRevenue) * 100) : 0}% of sales
                 </p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4">
