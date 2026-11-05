@@ -52,6 +52,7 @@ export default function StockRequests() {
   const [lines, setLines] = useState([]);
   const [prodSearch, setProdSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [filling, setFilling] = useState(false);
   const searchRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -95,6 +96,47 @@ export default function StockRequests() {
     if (!q) return [];
     return products.filter(p => p.is_active !== false && ((p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase() === q)).slice(0, 8);
   }, [prodSearch, products]);
+
+  // Fill the request from this store's reorder levels: every product supplied by the chosen
+  // supplier (e.g. Stox room) whose stock is at or below its reorder point, ordered at its
+  // preferred quantity. Lines already on the request are kept, never overwritten.
+  const fillFromReorder = async () => {
+    if (!header.store_id || !header.supplier_id) return toast.error('Choose the store and who it is requested from first');
+    setFilling(true);
+    try {
+      const rows = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('store_inventory')
+          .select('product_id, stock_quantity, reorder_point, preferred_quantity')
+          .eq('company_id', companyId).eq('store_id', header.store_id).eq('supplier_id', header.supplier_id)
+          .gt('reorder_point', 0).order('product_id').range(from, from + 999);
+        if (error) throw error;
+        rows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      const byId = Object.fromEntries(products.map(p => [p.id, p]));
+      const low = rows.filter(r => num(r.stock_quantity) <= num(r.reorder_point) && byId[r.product_id] && byId[r.product_id].is_active !== false);
+      if (!rows.length) return toast.info('No reorder levels are set for this store and supplier');
+      if (!low.length) return toast.success('Nothing is at or below its reorder level');
+      let added = 0, noPref = 0;
+      setLines(ls => {
+        const have = new Set(ls.map(l => l.product_id));
+        const next = [...ls];
+        for (const r of low) {
+          if (have.has(r.product_id)) continue;
+          const pref = num(r.preferred_quantity);
+          if (!(pref > 0)) noPref++;
+          const qty = pref > 0 ? pref : Math.max(1, num(r.reorder_point) - num(r.stock_quantity));
+          const p = byId[r.product_id];
+          next.push({ product_id: p.id, product_name: p.name, sku: p.sku, quantity: qty });
+          added++;
+        }
+        return next;
+      });
+      setTimeout(() => toast.success(`${low.length} item${low.length === 1 ? '' : 's'} at or below reorder level added at their preferred quantity` + (noPref ? ` (${noPref} had no preferred quantity, so the gap to reorder level was used)` : '') + '. Check the quantities, then send.'), 0);
+    } catch (e) { toast.error(e.message || 'Could not load reorder levels'); }
+    finally { setFilling(false); }
+  };
 
   const addProduct = (p) => {
     setLines(ls => {
@@ -249,6 +291,9 @@ export default function StockRequests() {
               </Select>
             </div>
           </div>
+          <Button type="button" variant="outline" className="w-full gap-2" onClick={fillFromReorder} disabled={filling || !header.store_id || !header.supplier_id}>
+            {filling ? 'Checking reorder levels...' : 'Fill from reorder levels (items at or below reorder point)'}
+          </Button>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-3.5 text-muted-foreground" />
             <Input ref={searchRef} className="pl-9 h-11" placeholder="Search product name / SKU, press Enter" value={prodSearch} onChange={e => setProdSearch(e.target.value)} onKeyDown={onSearchKey} />
