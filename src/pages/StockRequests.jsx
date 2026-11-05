@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCompany } from "../lib/CompanyContext";
+import { useAuth } from "@/lib/AuthContext";
 
 const statusStyle = {
   requested: "bg-blue-500/10 text-blue-600 border-blue-200",
@@ -35,8 +36,11 @@ async function loadAllProducts(companyId) {
   return out;
 }
 
+// Reorder lists are drawn up by named people only (profiles.extra_pages contains 'reorder_list': Rosie and Caelan), plus owners/admins.
 export default function StockRequests() {
   const { companyId, role } = useCompany();
+  const { profile } = useAuth();
+  const canReorder = ['owner', 'admin', 'superadmin'].includes(role) || (Array.isArray(profile?.extra_pages) && profile.extra_pages.includes('reorder_list'));
   const isMgr = MGR.includes(role);
   const navigate = useNavigate();
   const [issue, setIssue] = useState(null);     // { req, lines, qty: {lineId: n}, notes }
@@ -101,6 +105,7 @@ export default function StockRequests() {
   // supplier (e.g. Stox room) whose stock is at or below its reorder point, ordered at its
   // preferred quantity. Lines already on the request are kept, never overwritten.
   const fillFromReorder = async () => {
+    if (!canReorder) return;
     if (!header.store_id || !header.supplier_id) return toast.error('Choose the store and who it is requested from first');
     setFilling(true);
     try {
@@ -291,9 +296,9 @@ export default function StockRequests() {
               </Select>
             </div>
           </div>
-          <Button type="button" variant="outline" className="w-full gap-2" onClick={fillFromReorder} disabled={filling || !header.store_id || !header.supplier_id}>
+          {canReorder && <Button type="button" variant="outline" className="w-full gap-2" onClick={fillFromReorder} disabled={filling || !header.store_id || !header.supplier_id}>
             {filling ? 'Checking reorder levels...' : 'Fill from reorder levels (items at or below reorder point)'}
-          </Button>
+          </Button>}
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-3.5 text-muted-foreground" />
             <Input ref={searchRef} className="pl-9 h-11" placeholder="Search product name / SKU, press Enter" value={prodSearch} onChange={e => setProdSearch(e.target.value)} onKeyDown={onSearchKey} />
