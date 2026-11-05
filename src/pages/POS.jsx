@@ -2463,7 +2463,7 @@ export default function POS() {
             </DialogHeader>
             {tierProduct && (
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">{tierProduct.stock_quantity}g in stock · Choose quantity:</p>
+                <p className="text-sm text-muted-foreground">Choose quantity:</p>
                 <button onClick={handleBaseSelect} disabled={!allowNegative && tierProduct.stock_quantity < 1}
                   className="w-full flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                   <div className="flex items-center gap-3">

@@ -82,12 +82,8 @@ export default function ProductGrid({ products, onSelect, searchTerm, selectedCa
                 })}
               </div>
             )}
-            <p className={cn(
-              "text-xs mt-1",
-              product.stock_quantity <= 5 ? "text-red-500" : "text-muted-foreground"
-            )}>
-              {product.stock_quantity}{isFlower ? "g" : ""} in stock
-            </p>
+            {/* Stock quantities are intentionally not shown on the POS (system stock is
+                managed through GRV / counts, and selling into negative stock is allowed). */}
           </button>
         );
       })}
