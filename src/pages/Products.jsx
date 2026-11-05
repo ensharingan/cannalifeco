@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "../lib/currency";
 import { useCompany } from "../lib/CompanyContext";
+import { useAuth } from "@/lib/AuthContext";
 import BulkProductImportDialog from "../components/products/BulkProductImportDialog";
 
 const DEFAULT_CATEGORIES = [
@@ -413,6 +414,9 @@ function ProductForm({
       ? (stores || []).filter(s => getStoreStock(product.id, s.id)).map(s => s.id)
       : [],
     supplier_id: product?.supplier_id || "",
+    /* Reorder level for the store(s) this saves to. Blank = leave as is. */
+    reorder_point: initialInv && initialInv.reorder_point != null ? String(initialInv.reorder_point) : "",
+    preferred_quantity: initialInv && initialInv.preferred_quantity != null ? String(initialInv.preferred_quantity) : "",
     /* One branch's own figures. Blank means it follows the group price. */
     store_price: overrideToInput(initialInv ? initialInv.price : null),
     store_cost_price: overrideToInput(initialInv ? initialInv.cost_price : null),
@@ -424,6 +428,9 @@ function ProductForm({
 
   const update = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const { companyId: formCompanyId } = useCompany();
+  const { profile: formProfile } = useAuth();
+  /* Reorder levels are for the people who draw up the reorder list (owners/admins and anyone with 'reorder_list'). */
+  const canSeeReorder = ['owner', 'admin', 'superadmin'].includes(formProfile?.role) || (Array.isArray(formProfile?.extra_pages) && formProfile.extra_pages.includes('reorder_list'));
   const [uploadingImage, setUploadingImage] = useState(false);
   const handleImagePick = async (e) => {
     const file = e.target.files && e.target.files[0];
@@ -479,6 +486,8 @@ function ProductForm({
       update("low_stock_threshold", row && row.low_stock_threshold != null
         ? toNum(row.low_stock_threshold)
         : (product.low_stock_threshold || 5));
+      update("reorder_point", row && row.reorder_point != null ? String(row.reorder_point) : "");
+      update("preferred_quantity", row && row.preferred_quantity != null ? String(row.preferred_quantity) : "");
       update("store_price", overrideToInput(row ? row.price : null));
       update("store_cost_price", overrideToInput(row ? row.cost_price : null));
     }
@@ -659,6 +668,28 @@ function ProductForm({
           </SelectContent>
         </Select>
       </div>
+
+      {canSeeReorder && (
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="text-sm font-medium">Reorder level</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Reorder at (stock level)</Label>
+              <Input type="number" min={0} placeholder="e.g. 5" value={form.reorder_point} onFocus={sel}
+                onChange={e => update("reorder_point", e.target.value === "" ? "" : String(Math.max(0, Number(e.target.value))))} />
+            </div>
+            <div>
+              <Label>Order quantity</Label>
+              <Input type="number" min={0} placeholder="e.g. 10" value={form.preferred_quantity} onFocus={sel}
+                onChange={e => update("preferred_quantity", e.target.value === "" ? "" : String(Math.max(0, Number(e.target.value))))} />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            When stock falls to the reorder level, the product goes on the reorder list for the supplier above, at the order quantity.
+            {product ? " Saved to the store chosen above." : " Saved to every store ticked above."}
+          </p>
+        </div>
+      )}
 
       {form.is_bundle && (
         <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 space-y-3">
@@ -986,7 +1017,7 @@ export default function Products() {
      price and cost_price ride along — they are the per-store overrides. */
   const loadStoreInventory = useCallback(async () => {
     if (!companyId) return;
-    const COLS = "product_id, store_id, stock_quantity, low_stock_threshold, price, cost_price";
+    const COLS = "product_id, store_id, stock_quantity, low_stock_threshold, price, cost_price, reorder_point, preferred_quantity";
     try {
       const byCompany = await fetchAllRows(() =>
         supabase.from("store_inventory").select(COLS)
@@ -1153,6 +1184,19 @@ export default function Products() {
     if (blocked.length) toast.error("Still holds stock, so not unlinked: " + blocked.join(", "));
   };
 
+  /* The reorder list reads store_inventory (reorder point, order quantity, supplier), so write
+     those per store as well as the product-level supplier. Blank fields leave existing values alone. */
+  const applyReorderSettings = async (productId, storeIds, data) => {
+    const patch = {};
+    if (data.supplier_id) patch.supplier_id = data.supplier_id;
+    if (data.reorder_point !== "" && data.reorder_point != null) patch.reorder_point = Math.max(0, toNum(data.reorder_point));
+    if (data.preferred_quantity !== "" && data.preferred_quantity != null) patch.preferred_quantity = Math.max(0, toNum(data.preferred_quantity));
+    if (!Object.keys(patch).length || !storeIds.length) return;
+    const { error } = await supabase.from("store_inventory").update(patch)
+      .eq("product_id", productId).in("store_id", storeIds);
+    if (error) throw error;
+  };
+
   const handleCreate = async (data) => {
     setIsSaving(true);
     try {
@@ -1200,6 +1244,7 @@ export default function Products() {
       const wantedLinks = (data.linked_store_ids || []).slice();
       if (storeId && wantedLinks.indexOf(storeId) === -1) wantedLinks.push(storeId);
       await applyStoreLinks(newProduct.id, wantedLinks);
+      await applyReorderSettings(newProduct.id, wantedLinks, data);
       const createdStoreName = stores.find(s => s.id === storeId)?.name;
       toast.success(storePrice !== null && createdStoreName
         ? `Product created · ${createdStoreName} priced at ${formatCurrency(storePrice)}`
@@ -1267,6 +1312,7 @@ export default function Products() {
       const wantedLinks = (data.linked_store_ids || []).slice();
       if (targetStoreId && wantedLinks.indexOf(targetStoreId) === -1) wantedLinks.push(targetStoreId);
       await applyStoreLinks(editProduct.id, wantedLinks);
+      await applyReorderSettings(editProduct.id, targetStoreId ? [targetStoreId] : [], data);
 
       const storeName = stores.find(s => s.id === targetStoreId)?.name;
       let msg = "Product updated";
