@@ -59,6 +59,7 @@ async function buildReport(sessionId, companyId) {
     supabase.from("products").select("id, name, category").eq("company_id", companyId),
     supabase.from("cashier_sessions").select("id", { count: "exact", head: true }).eq("company_id", companyId).lte("opening_time", s.opening_time),
     supabase.rpc("budify_session_cash_expenses", { p_session: sessionId }),
+    supabase.rpc("budify_session_tube_returns", { p_session: sessionId }),
   ]);
   var orders = (res[0].data || []).filter(function (o) { return LEDGER_METHODS.indexOf((o.payment_method || "").toLowerCase()) === -1; });
   var tabPays = res[1].data || [];
@@ -110,6 +111,11 @@ async function buildReport(sessionId, companyId) {
   // Cash expenses captured in Finances while this session was open
   cashOutTotal += n(res[6] && res[6].data);
 
+  // Tube return trade-ins taken this session (empties that should be in the bin)
+  var tubeRow = Array.isArray(res[7] && res[7].data) ? res[7].data[0] : null;
+  var tubesTaken = tubeRow ? n(tubeRow.tubes) : 0;
+  var tubeCreditTotal = tubeRow ? n(tubeRow.credit_amount) : 0;
+
   var cashIn = (tenders["Cash"] || 0) + (tenders["Tab: Cash"] || 0);
   var opening = n(s.opening_float);
   var expected = s.expected_cash != null ? n(s.expected_cash) : opening + cashIn - cashOutTotal;
@@ -122,6 +128,7 @@ async function buildReport(sessionId, companyId) {
     tenders: tenders, totalTendered: totalTendered, sales: sales,
     refundCount: refunds.length, refundTotal: refundTotal,
     cashOutTotal: cashOutTotal, discounts: discounts, tax: tax,
+    tubesTaken: tubesTaken, tubeCreditTotal: tubeCreditTotal,
     opening: opening, expected: expected, counted: counted,
     variance: counted != null ? counted - expected : null,
     cardCounted: s.closing_card_total != null ? n(s.closing_card_total) : null,
@@ -182,6 +189,7 @@ function ReportBody({ rep, storeName, final }) {
       <Line l="Returns" r={rep.refundCount} />
       <Line l="Total returns" r={money(rep.refundTotal)} />
       <Line l="Discounts granted" r={money(rep.discounts)} />
+      {rep.tubesTaken > 0 && <Line l={"Tube return credit (" + rep.tubesTaken + " tubes)"} r={money(rep.tubeCreditTotal)} />}
       <Line l="Cash paid out" r={money(rep.cashOutTotal)} />
       <Rule />
       <Line l="Taxable total" r={money(rep.sales - rep.tax)} />
@@ -237,7 +245,7 @@ function reportLines(rep, storeName, final) {
   row("Total tendered", money(rep.totalTendered), true);
   rule();
   row("Returns", rep.refundCount); row("Total returns", money(rep.refundTotal));
-  row("Discounts granted", money(rep.discounts)); row("Cash paid out", money(rep.cashOutTotal));
+  row("Discounts granted", money(rep.discounts)); if (rep.tubesTaken > 0) row("Tube return credit (" + rep.tubesTaken + " tubes)", money(rep.tubeCreditTotal)); row("Cash paid out", money(rep.cashOutTotal));
   rule();
   row("Taxable total", money(rep.sales - rep.tax)); row("Tax", money(rep.tax)); row("Total", money(rep.sales), true);
   rule();
