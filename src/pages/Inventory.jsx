@@ -206,7 +206,10 @@ function ProductPicker({ value, onChange, products, showStock, storeId, storeInv
 }
 
 export default function Inventory() {
-  var { companyId, activeStoreId: sidebarStoreId } = useCompany();
+  var { companyId, activeStoreId: sidebarStoreId, role: invRole } = useCompany();
+  var { profile: invProfile } = useAuth();
+  // Reorder levels are for the people who draw up the reorder list (profiles.extra_pages has 'reorder_list'), plus owners/admins.
+  var canSeeReorder = ['owner', 'admin', 'superadmin'].indexOf(invRole) !== -1 || (Array.isArray(invProfile && invProfile.extra_pages) && invProfile.extra_pages.indexOf('reorder_list') !== -1);
   var { profile } = useAuth();
   // Prestin-style restricted staff: can receive stock in, nothing else. Set
   // explicitly per-profile via profiles.permissions.stock_add, independent of
@@ -386,6 +389,8 @@ export default function Inventory() {
             _cost_override: inv && hasOverride(inv.cost_price) ? Number(inv.cost_price) : null,
             _by_store: byStore,
             stock_quantity: inv ? inv.stock_quantity : 0,
+            _reorder_point: inv && inv.reorder_point != null ? Number(inv.reorder_point) : null,
+            _preferred_qty: inv && inv.preferred_quantity != null ? Number(inv.preferred_quantity) : null,
             _inv_id: inv ? inv.id : null,
           };
         }
@@ -1066,6 +1071,7 @@ export default function Inventory() {
                   { key: "category", label: "Category", align: "left" },
                   { key: "strain", label: "Strain", align: "left" },
                   { key: "stock", label: activeStoreId ? "Stock · " + storeName : "Stock · all stores", align: "right" },
+                  ...(canSeeReorder ? [{ key: "reorder", label: "Reorder (pt / order)", align: "right" }] : []),
                   { key: "price", label: "Price", align: "right" },
                   { key: "cost", label: "Cost", align: "right" },
                   { key: "value", label: "Stock Value", align: "right" },
@@ -1080,7 +1086,7 @@ export default function Inventory() {
                         col.align === "right" ? "text-right" : "text-left"
                       )}
                       onClick={function () {
-                        if (col.key !== "status") toggleSort(col.key);
+                        if (col.key !== "status" && col.key !== "reorder") toggleSort(col.key);
                       }}
                     >
                       {col.label}
@@ -1093,7 +1099,7 @@ export default function Inventory() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-sm text-muted-foreground">No products found</td>
+                  <td colSpan={canSeeReorder ? 11 : 10} className="p-8 text-center text-sm text-muted-foreground">No products found</td>
                 </tr>
               ) : (
                 filtered.map(function (p) {
@@ -1137,6 +1143,16 @@ export default function Inventory() {
                             p.stock_quantity || 0
                           )}
                         </td>
+                        {canSeeReorder && <td className="p-3 text-right text-xs whitespace-nowrap">
+                          {p._reorder_point > 0 ? (
+                            <span className={cn("px-2 py-1 rounded-full font-medium", (p.stock_quantity || 0) <= p._reorder_point ? "bg-orange-500/10 text-orange-500" : "text-muted-foreground")}
+                              title={(p.stock_quantity || 0) <= p._reorder_point ? "At or below reorder level: add to a stock request" : "Above reorder level"}>
+                              {p._reorder_point} / {p._preferred_qty > 0 ? p._preferred_qty : "—"}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">{activeStoreId ? "—" : ""}</span>
+                          )}
+                        </td>}
                         <td className="p-3 text-right">
                           {activeStoreId && !addOnlyMode ? (
                             <button
