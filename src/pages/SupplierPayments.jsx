@@ -13,7 +13,7 @@ import { formatCurrency } from "../lib/currency";
 import {
   DollarSign, Plus, Search, Eye, CreditCard, Truck, AlertTriangle,
   CheckCircle, Clock, Receipt, Wallet, Trash2, Edit, Phone, Mail, Users, Package, XCircle,
-  Warehouse, PackageCheck, Copy
+  Warehouse, PackageCheck, Copy, Send, MessageCircle, ClipboardList
 } from "lucide-react";
 
 const STATUS_STYLES = {
@@ -21,12 +21,13 @@ const STATUS_STYLES = {
   partial:      "bg-amber-500/10 text-amber-400 border-amber-500/20",
   paid:         "bg-green-500/10 text-green-400 border-green-500/20",
   consignment:  "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  ordered:      "bg-sky-500/10 text-sky-400 border-sky-500/20",
   cancelled:    "bg-muted text-muted-foreground border-border",
 };
 
 const STATUS_ICONS = {
   unpaid: AlertTriangle, partial: Clock, paid: CheckCircle,
-  consignment: Package, cancelled: XCircle,
+  consignment: Package, cancelled: XCircle, ordered: ClipboardList,
 };
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -55,6 +56,9 @@ export default function SupplierPayments() {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [editSupplier, setEditSupplier] = useState(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
+  // 'receive' = record a delivery (original flow); 'order' = raise an order to send to the supplier
+  const [orderMode, setOrderMode] = useState("receive");
+  const [receivingPoId, setReceivingPoId] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -113,7 +117,7 @@ export default function SupplierPayments() {
   useEffect(() => { load(); }, [load]);
 
   // Stats
-  const totalOwed = orders.filter(o => o.status !== "cancelled" && o.status !== "consignment").reduce((s, o) => s + (o.invoice_total || 0), 0);
+  const totalOwed = orders.filter(o => o.status !== "cancelled" && o.status !== "consignment" && o.status !== "ordered").reduce((s, o) => s + (o.invoice_total || 0), 0);
   const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
   const totalOutstanding = totalOwed - totalPaid;
   const unpaidCount = orders.filter(o => o.status === "unpaid" || o.status === "partial").length;
@@ -411,8 +415,8 @@ export default function SupplierPayments() {
   };
 
   const addItem = () => {
-    if (!itemForm.product_name.trim() || !itemForm.quantity || !itemForm.cost_price) {
-      toast.error("Fill in product, quantity and cost price"); return;
+    if (!itemForm.product_name.trim() || !itemForm.quantity || (orderMode !== "order" && !itemForm.cost_price)) {
+      toast.error(orderMode === "order" ? "Fill in product and quantity" : "Fill in product, quantity and cost price"); return;
     }
     // Resolve to a real product so stock lands on the right record
     const typed = itemForm.product_name.trim().toLowerCase();
@@ -422,8 +426,8 @@ export default function SupplierPayments() {
       product_id: match ? match.id : null,
       product_name: match ? match.name : itemForm.product_name.trim(),
       quantity: Number(itemForm.quantity),
-      cost_price: Number(itemForm.cost_price),
-      line_total: Number(itemForm.quantity) * Number(itemForm.cost_price),
+      cost_price: Number(itemForm.cost_price) || 0,
+      line_total: Number(itemForm.quantity) * (Number(itemForm.cost_price) || 0),
         received_quantity: Number(itemForm.quantity),
     };
 
@@ -456,7 +460,143 @@ export default function SupplierPayments() {
     });
   };
 
+  // ── Order-first helpers ──
+  const newPoNumber = () => {
+    const d = new Date();
+    const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+    return `PO-${ymd}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  };
+
+  const openNewSupplierOrder = () => {
+    setOrderMode("order");
+    setReceivingPoId(null);
+    setOrderForm({ ...emptyOrderForm, order_number: newPoNumber(), store_id: activeStoreId || (stores[0] && stores[0].id) || "" });
+    setShowNewOrder(true);
+  };
+
+  // Receive stock against an order that was already raised: prefill from the PO
+  const openReceiveOrder = (o) => {
+    const items = parseItems(o.items).map(i => ({ ...i, received_quantity: Number(i.quantity) || 0 }));
+    setOrderMode("receive");
+    setReceivingPoId(o.id);
+    setOrderForm({
+      ...emptyOrderForm,
+      supplier_id: o.supplier_id,
+      store_id: o.store_id || "",
+      order_number: o.order_number || "",
+      invoice_total: items.reduce((sum, i) => sum + (Number(i.line_total) || 0), 0).toFixed(2),
+      notes: o.notes || "",
+      items,
+      payment_type: o.payment_type && o.payment_type !== "consignment" ? o.payment_type : "terms",
+    });
+    setShowNewOrder(true);
+  };
+
+  const buildOrderText = (o) => {
+    const supplier = suppliers.find(s => s.id === o.supplier_id);
+    const store = stores.find(s => s.id === o.store_id);
+    const items = parseItems(o.items);
+    const lines = items.map(i => `• ${i.quantity} × ${i.product_name}`);
+    return [
+      `*Purchase Order ${o.order_number || o.id.slice(0, 8)}*`,
+      company?.name ? `From: ${company.name}` : null,
+      supplier?.name ? `To: ${supplier.name}` : null,
+      store?.name ? `Deliver to: ${store.name}` : null,
+      o.expected_date ? `Needed by: ${o.expected_date}` : null,
+      "",
+      ...lines,
+      o.notes ? `\nNotes: ${o.notes}` : null,
+      "",
+      "Please confirm availability and delivery date. Thank you.",
+    ].filter(x => x !== null).join("\n");
+  };
+
+  const markSent = async (o, via) => {
+    const sent_at = new Date().toISOString();
+    const { error } = await supabase.from("supplier_purchase_orders").update({ sent_at, sent_via: via }).eq("id", o.id);
+    if (error) { toast.error("Sent, but could not mark it as sent: " + error.message); return; }
+    setOrders(prev => prev.map(x => x.id === o.id ? { ...x, sent_at, sent_via: via } : x));
+  };
+
+  const sendOrderWhatsApp = async (o) => {
+    const supplier = suppliers.find(s => s.id === o.supplier_id);
+    let phone = String(supplier?.phone || "").replace(/[^0-9]/g, "");
+    if (!phone) { toast.error("This supplier has no phone number — add one on the Suppliers tab"); return; }
+    if (phone.startsWith("0")) phone = "27" + phone.slice(1);
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildOrderText(o))}`, "_blank");
+    await markSent(o, "whatsapp");
+  };
+
+  const sendOrderEmail = async (o) => {
+    const supplier = suppliers.find(s => s.id === o.supplier_id);
+    if (!supplier?.email) { toast.error("This supplier has no email — add one on the Suppliers tab"); return; }
+    window.location.href = `mailto:${supplier.email}?subject=${encodeURIComponent("Purchase Order " + (o.order_number || ""))}&body=${encodeURIComponent(buildOrderText(o).replace(/\*/g, ""))}`;
+    await markSent(o, "email");
+  };
+
+  const copyOrderText = async (o) => {
+    try { await navigator.clipboard.writeText(buildOrderText(o)); toast.success("Order copied — paste it anywhere"); await markSent(o, "copied"); }
+    catch (_) { toast.error("Could not copy"); }
+  };
+
+  const cancelOrderedPo = async (o) => {
+    if (!window.confirm(`Cancel order ${o.order_number || o.id.slice(0, 8)}? Nothing has been received or owed on it.`)) return;
+    const { error } = await supabase.from("supplier_purchase_orders").update({ status: "cancelled" }).eq("id", o.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Order cancelled");
+    load();
+  };
+
+  const saveSupplierOrder = async () => {
+    if (!orderForm.supplier_id || !orderForm.store_id) { toast.error("Select a supplier and a delivery store"); return; }
+    let items = orderForm.items;
+    if (itemForm.product_name.trim() && itemForm.quantity) {
+      const typed = itemForm.product_name.trim().toLowerCase();
+      const match = products.find(p => (p.name || "").trim().toLowerCase() === typed);
+      items = [...items, {
+        product_id: match ? match.id : null,
+        product_name: match ? match.name : itemForm.product_name.trim(),
+        quantity: Number(itemForm.quantity),
+        cost_price: Number(itemForm.cost_price) || 0,
+        line_total: Number(itemForm.quantity) * (Number(itemForm.cost_price) || 0),
+        received_quantity: 0,
+      }];
+    }
+    if (items.length === 0) { toast.error("Add at least one item to order"); return; }
+    setIsSaving(true);
+    try {
+      const calcTotal = items.reduce((sum, i) => sum + (Number(i.line_total) || 0), 0);
+      const { data: created, error } = await supabase.from("supplier_purchase_orders").insert({
+        company_id: companyId,
+        supplier_id: orderForm.supplier_id,
+        store_id: orderForm.store_id,
+        order_number: orderForm.order_number || newPoNumber(),
+        invoice_total: calcTotal,
+        calculated_total: calcTotal,
+        items: JSON.stringify(items.map(i => ({ ...i, received_quantity: 0 }))),
+        notes: orderForm.notes || null,
+        payment_type: "terms",
+        status: "ordered",
+        amount_paid: 0,
+        stock_applied: false,
+        expected_date: orderForm.expected_date || null,
+        created_by: (await supabase.auth.getUser()).data.user?.id || null,
+      }).select().single();
+      if (error) throw error;
+      toast.success(`Order ${created.order_number} created — send it to the supplier from the list`);
+      setShowNewOrder(false);
+      setOrderForm(emptyOrderForm);
+      setItemForm({ product_name: "", quantity: "", cost_price: "" });
+      load();
+    } catch (err) {
+      toast.error(err.message || "Failed to create order");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const saveOrder = async () => {
+    if (orderMode === "order") return saveSupplierOrder();
     if (!orderForm.supplier_id || !orderForm.store_id) {
       toast.error("Select a supplier and a receiving store"); return;
     }
@@ -510,11 +650,21 @@ export default function SupplierPayments() {
         created_by: (await supabase.auth.getUser()).data.user?.id || null,
       };
 
-      const { data: created, error } = await supabase
-        .from("supplier_purchase_orders")
-        .insert(payload)
-        .select()
-        .single();
+      let created, error;
+      if (receivingPoId) {
+        // Receiving against a PO that was already raised: update it, never create a second one.
+        // Guard on status so a double-click can't receive the same order twice.
+        const { received_at, created_by, company_id, ...changes } = payload;
+        const res = await supabase.from("supplier_purchase_orders")
+          .update({ ...changes, received_at })
+          .eq("id", receivingPoId).eq("status", "ordered")
+          .select().maybeSingle();
+        created = res.data; error = res.error;
+        if (!error && !created) throw new Error("This order was already received or cancelled — refresh the list");
+      } else {
+        const res = await supabase.from("supplier_purchase_orders").insert(payload).select().single();
+        created = res.data; error = res.error;
+      }
       if (error) throw error;
 
       if (isCash) {
@@ -551,6 +701,7 @@ export default function SupplierPayments() {
       }
 
       setShowNewOrder(false);
+      setReceivingPoId(null);
       setOrderForm(emptyOrderForm);
       setItemForm({ product_name: "", quantity: "", cost_price: "" });
       load();
@@ -611,7 +762,7 @@ export default function SupplierPayments() {
   });
 
   const supplierSummary = suppliers.map(s => {
-    const sOrders = orders.filter(o => o.supplier_id === s.id && o.status !== "cancelled");
+    const sOrders = orders.filter(o => o.supplier_id === s.id && o.status !== "cancelled" && o.status !== "ordered");
     const sPayments = payments.filter(p => p.supplier_id === s.id);
     const owed = sOrders.filter(o => o.status !== "consignment").reduce((sum, o) => sum + (o.invoice_total || 0), 0);
     const paid = sPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -648,9 +799,14 @@ export default function SupplierPayments() {
             </Button>
           )}
           {activeTab === "orders" && (
-            <Button onClick={() => { setShowNewOrder(true); setOrderForm({ ...emptyOrderForm, store_id: activeStoreId || (stores[0] && stores[0].id) || "" }); }} className="gap-2">
-              <Truck className="w-4 h-4" /> Receive Stock
-            </Button>
+            <>
+              <Button onClick={openNewSupplierOrder} className="gap-2">
+                <ClipboardList className="w-4 h-4" /> New Order
+              </Button>
+              <Button variant="outline" onClick={() => { setOrderMode("receive"); setReceivingPoId(null); setShowNewOrder(true); setOrderForm({ ...emptyOrderForm, store_id: activeStoreId || (stores[0] && stores[0].id) || "" }); }} className="gap-2">
+                <Truck className="w-4 h-4" /> Receive Stock
+              </Button>
+            </>
           )}
           {activeTab === "payments" && (
             <Button onClick={() => { setShowPayment(true); setPayForm(emptyPayForm); }} className="gap-2">
@@ -772,7 +928,7 @@ export default function SupplierPayments() {
       {activeTab === "orders" && (
         <>
           <div className="flex gap-2 flex-wrap">
-            {["all", "unpaid", "partial", "paid", "consignment", "cancelled"].map(f => (
+            {["all", "ordered", "unpaid", "partial", "paid", "consignment", "cancelled"].map(f => (
               <button key={f} onClick={() => setFilterStatus(f)}
                 className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all ${filterStatus === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
                 {f}
@@ -812,7 +968,7 @@ export default function SupplierPayments() {
                         <td className="p-3 text-sm text-muted-foreground hidden sm:table-cell font-mono">{o.order_number || o.id.slice(0, 8)}</td>
                         <td className="p-3 text-sm font-semibold">{formatCurrency(o.invoice_total)}</td>
                         <td className="p-3 text-sm text-green-400 hidden md:table-cell">{formatCurrency(o.amount_paid || 0)}</td>
-                        <td className="p-3"><span className={`text-sm font-bold ${balance > 0 && o.status !== "cancelled" ? "text-red-400" : "text-muted-foreground"}`}>{o.status === "cancelled" ? "—" : formatCurrency(balance)}</span></td>
+                        <td className="p-3"><span className={`text-sm font-bold ${balance > 0 && o.status !== "cancelled" && o.status !== "ordered" ? "text-red-400" : "text-muted-foreground"}`}>{o.status === "cancelled" || o.status === "ordered" ? "—" : formatCurrency(balance)}</span></td>
                         <td className="p-3">
                           <span className={`text-xs font-medium capitalize ${typeColors[o.payment_type || "terms"] || "text-muted-foreground"}`}>
                             {o.payment_type || "terms"}
@@ -820,12 +976,12 @@ export default function SupplierPayments() {
                         </td>
                         <td className="p-3">
                           <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium ${STATUS_STYLES[o.status]}`}>
-                            <StatusIcon className="w-3 h-3" />{o.status}
+                            <StatusIcon className="w-3 h-3" />{o.status === "ordered" && o.sent_at ? "ordered · sent" : o.status}
                           </span>
                         </td>
                         <td className="p-3 hidden md:table-cell">
-                          {lineItems.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">—</span>
+                          {lineItems.length === 0 || o.status === "ordered" ? (
+                            <span className="text-xs text-muted-foreground">{o.status === "ordered" ? "Awaiting delivery" : "—"}</span>
                           ) : o.stock_applied ? (
                             <span className="inline-flex items-center gap-1 text-xs text-green-400 font-medium">
                               <PackageCheck className="w-3.5 h-3.5" /> In stock
@@ -840,7 +996,16 @@ export default function SupplierPayments() {
                         <td className="p-3">
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowDetail(o)}><Eye className="w-4 h-4" /></Button>
-                            {!o.stock_applied && lineItems.length > 0 && o.status !== "cancelled" && (
+                            {o.status === "ordered" && (
+                              <>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-400" title="Send via WhatsApp" onClick={() => sendOrderWhatsApp(o)}><MessageCircle className="w-4 h-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-sky-400" title="Send via email" onClick={() => sendOrderEmail(o)}><Mail className="w-4 h-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy order text" onClick={() => copyOrderText(o)}><Copy className="w-4 h-4" /></Button>
+                                <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => openReceiveOrder(o)}><Truck className="w-3.5 h-3.5" /> Receive</Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400" title="Cancel order" onClick={() => cancelOrderedPo(o)}><XCircle className="w-4 h-4" /></Button>
+                              </>
+                            )}
+                            {o.status !== "ordered" && !o.stock_applied && lineItems.length > 0 && o.status !== "cancelled" && (
                               <Button
                                 variant="ghost" size="icon"
                                 className="h-8 w-8 text-amber-400 hover:text-amber-300"
@@ -851,8 +1016,8 @@ export default function SupplierPayments() {
                                 <Warehouse className="w-4 h-4" />
                               </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditOrder(o)}><Edit className="w-4 h-4" /></Button>
-                            {o.status !== "paid" && o.status !== "cancelled" && o.status !== "consignment" && (
+                            {o.status !== "ordered" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditOrder(o)}><Edit className="w-4 h-4" /></Button>}
+                            {o.status !== "paid" && o.status !== "cancelled" && o.status !== "consignment" && o.status !== "ordered" && (
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-green-400" onClick={() => openPayForOrder(o)}><CreditCard className="w-4 h-4" /></Button>
                             )}
                             {/* Write-off button — only for unpaid/partial orders */}
@@ -1168,9 +1333,9 @@ export default function SupplierPayments() {
       </Dialog>
 
       {/* ── Receive Stock Dialog ── */}
-      <Dialog open={showNewOrder} onOpenChange={setShowNewOrder}>
+      <Dialog open={showNewOrder} onOpenChange={(open) => { setShowNewOrder(open); if (!open) setReceivingPoId(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Truck className="w-5 h-5" /> Receive Stock from Supplier</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2">{orderMode === "order" ? <ClipboardList className="w-5 h-5" /> : <Truck className="w-5 h-5" />} {orderMode === "order" ? "New Order to Supplier" : receivingPoId ? "Receive Order" : "Receive Stock from Supplier"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Supplier *</Label>
@@ -1183,7 +1348,7 @@ export default function SupplierPayments() {
               </Select>
             </div>
             <div>
-              <Label>Receiving Store *</Label>
+              <Label>{orderMode === "order" ? "Deliver To Store *" : "Receiving Store *"}</Label>
               <Select value={orderForm.store_id || "pick"} onValueChange={v => { if (v !== "pick") setOrderForm(p => ({ ...p, store_id: v })); }}>
                 <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
                 <SelectContent>
@@ -1192,7 +1357,13 @@ export default function SupplierPayments() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            {orderMode === "order" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>PO Number</Label><Input value={orderForm.order_number} onChange={e => setOrderForm(p => ({ ...p, order_number: e.target.value }))} /></div>
+                <div><Label>Needed By (optional)</Label><Input type="date" value={orderForm.expected_date || ""} onChange={e => setOrderForm(p => ({ ...p, expected_date: e.target.value }))} className="[color-scheme:dark]" /></div>
+              </div>
+            )}
+            {orderMode !== "order" && (<div>
               <Label>Payment Type *</Label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 {[
@@ -1209,15 +1380,15 @@ export default function SupplierPayments() {
               </div>
               {orderForm.payment_type === "cash" && <p className="text-xs text-green-400 mt-1">✓ Will be auto-marked as paid and a payment record created</p>}
               {orderForm.payment_type === "consignment" && <p className="text-xs text-purple-400 mt-1">✓ Stock received — payment only due after units are sold</p>}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            </div>)}
+            {orderMode !== "order" && (<><div className="grid grid-cols-2 gap-3">
               <div><Label>Invoice / Order Number</Label><Input value={orderForm.order_number} onChange={e => setOrderForm(p => ({ ...p, order_number: e.target.value }))} placeholder="e.g. INV-001" /></div>
               <div><Label>Invoice Total</Label><Input type="number" value={orderForm.invoice_total} onChange={e => setOrderForm(p => ({ ...p, invoice_total: e.target.value }))} placeholder="Auto-fills from line items" /></div>
             </div>
             <div>
               <Label>Date Received</Label>
               <Input type="date" value={orderForm.order_date} onChange={e => setOrderForm(p => ({ ...p, order_date: e.target.value }))} className="[color-scheme:dark]" />
-            </div>
+            </div></>)}
             <div className="border border-border rounded-lg p-3 space-y-3">
               <h4 className="text-xs font-semibold text-muted-foreground">Line Items — pick existing products so stock updates automatically</h4>
               <div className="grid grid-cols-4 gap-2">
@@ -1226,7 +1397,7 @@ export default function SupplierPayments() {
                   <datalist id="product-suggestions">{products.map(p => <option key={p.id} value={p.name} />)}</datalist>
                 </div>
                 <Input type="number" value={itemForm.quantity} onChange={e => setItemForm(p => ({ ...p, quantity: e.target.value }))} placeholder="Qty" />
-                <Input type="number" value={itemForm.cost_price} onChange={e => setItemForm(p => ({ ...p, cost_price: e.target.value }))} placeholder="Cost" />
+                <Input type="number" value={itemForm.cost_price} onChange={e => setItemForm(p => ({ ...p, cost_price: e.target.value }))} placeholder={orderMode === "order" ? "Cost (optional)" : "Cost"} />
               </div>
               <Button size="sm" variant="outline" onClick={addItem} className="gap-1"><Plus className="w-3 h-3" /> Add Item</Button>
               {orderForm.items.length > 0 && (
@@ -1240,12 +1411,12 @@ export default function SupplierPayments() {
                         {item.quantity}× {item.product_name} @ {formatCurrency(item.cost_price)}
                       </span>
                       <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        {orderMode !== "order" && <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
                           Received
                           <input type="number" min="0" max={item.quantity} value={item.received_quantity ?? item.quantity}
                             onChange={e => setReceived(idx, e.target.value)}
                             className={`w-14 h-6 rounded border bg-background px-1 text-xs ${Number(item.received_quantity ?? item.quantity) < item.quantity ? "border-amber-500 text-amber-400" : "border-border"}`} />
-                        </label>
+                        </label>}
                         <span className="font-semibold">{formatCurrency(item.line_total)}</span>
                         <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300">×</button>
                       </div>
@@ -1255,7 +1426,7 @@ export default function SupplierPayments() {
                     <span>Calculated Total</span>
                     <span>{formatCurrency(orderForm.items.reduce((s, i) => s + i.line_total, 0))}</span>
                   </div>
-                  {orderForm.items.some(i => Number(i.received_quantity ?? i.quantity) < i.quantity) && (
+                  {orderMode !== "order" && orderForm.items.some(i => Number(i.received_quantity ?? i.quantity) < i.quantity) && (
                     <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2 mt-1 space-y-1.5">
                       <p className="text-[11px] text-amber-300">
                         Short delivery: only the received quantities go into stock, and an RFC is raised to this supplier for{" "}
@@ -1281,7 +1452,7 @@ export default function SupplierPayments() {
             </div>
 
             {/* Inventory toggle */}
-            <div className="flex items-start justify-between gap-3 rounded-lg border border-border p-3">
+            {orderMode !== "order" && <div className="flex items-start justify-between gap-3 rounded-lg border border-border p-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <Warehouse className="w-4 h-4 text-primary shrink-0" />
@@ -1295,11 +1466,11 @@ export default function SupplierPayments() {
                 checked={orderForm.update_stock}
                 onCheckedChange={v => setOrderForm(p => ({ ...p, update_stock: v }))}
               />
-            </div>
+            </div>}
 
             <div><Label>Notes</Label><Textarea value={orderForm.notes} onChange={e => setOrderForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional delivery notes" rows={2} /></div>
             <Button onClick={saveOrder} disabled={isSaving || !orderForm.supplier_id || !orderForm.store_id} className="w-full">
-              {isSaving ? "Saving..." : orderForm.payment_type === "consignment" ? "Record Consignment" : orderForm.payment_type === "cash" ? "Receive & Mark Paid" : "Record Purchase Order"}
+              {isSaving ? "Saving..." : orderMode === "order" ? "Create Order" : receivingPoId ? "Receive Order & Add Stock" : orderForm.payment_type === "consignment" ? "Record Consignment" : orderForm.payment_type === "cash" ? "Receive & Mark Paid" : "Record Purchase Order"}
             </Button>
           </div>
         </DialogContent>
@@ -1327,7 +1498,7 @@ export default function SupplierPayments() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">General payment (no specific order)</SelectItem>
-                    {orders.filter(o => o.supplier_id === payForm.supplier_id && o.status !== "paid" && o.status !== "cancelled").map(o => {
+                    {orders.filter(o => o.supplier_id === payForm.supplier_id && o.status !== "paid" && o.status !== "cancelled" && o.status !== "ordered").map(o => {
                       const bal = (o.invoice_total || 0) - (o.amount_paid || 0);
                       return <SelectItem key={o.id} value={o.id}>{o.order_number || o.id.slice(0, 8)} — {formatCurrency(bal)} due</SelectItem>;
                     })}

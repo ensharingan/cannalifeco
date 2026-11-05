@@ -212,7 +212,8 @@ export default function StockValueReport() {
     var query = supabase
       .from("supplier_purchase_orders")
       .select("id, order_number, invoice_total, calculated_total, amount_paid, balance_due, status, received_at, created_at, store_id, stores(name)")
-      .eq("company_id", company.id);
+      .eq("company_id", company.id)
+      .neq("status", "ordered"); // orders not yet delivered are not owed
 
     if (selectedStore !== "all") {
       query = query.eq("store_id", selectedStore);
