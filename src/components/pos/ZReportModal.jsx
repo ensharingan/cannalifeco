@@ -31,13 +31,28 @@ function prettyMethod(m) {
   return k.charAt(0).toUpperCase() + k.slice(1);
 }
 
+// payment_details can be an array or a double-encoded JSON string
+function parseSplitLegs(raw) {
+  var v = raw;
+  try { if (typeof v === "string") v = JSON.parse(v); } catch (e) { return []; }
+  try { if (typeof v === "string") v = JSON.parse(v); } catch (e2) { return []; }
+  if (!Array.isArray(v)) return [];
+  var out = [];
+  v.forEach(function (c) {
+    var amt = Number(c && c.amount);
+    var m = String((c && c.method) || "").toLowerCase();
+    if (m && isFinite(amt) && amt > 0) out.push({ method: m, amount: amt });
+  });
+  return out;
+}
+
 async function buildReport(sessionId, companyId) {
   var sRes = await supabase.from("cashier_sessions").select("*").eq("id", sessionId).maybeSingle();
   if (sRes.error || !sRes.data) throw new Error("Session not found");
   var s = sRes.data;
 
   var res = await Promise.all([
-    supabase.from("orders").select("id, order_number, total_amount, discount_amount, tax_amount, payment_method, credit_applied, items, created_at, status").eq("cashier_session_id", sessionId).eq("status", "completed").order("created_at", { ascending: true }),
+    supabase.from("orders").select("id, order_number, total_amount, discount_amount, tax_amount, payment_method, payment_details, credit_applied, items, created_at, status").eq("cashier_session_id", sessionId).eq("status", "completed").order("created_at", { ascending: true }),
     supabase.from("order_payments").select("amount, payment_method").eq("cashier_session_id", sessionId),
     supabase.from("refunds").select("total_amount, payment_method").eq("cashier_session_id", sessionId),
     supabase.from("till_cash_outs").select("amount").eq("cashier_session_id", sessionId),
@@ -64,7 +79,12 @@ async function buildReport(sessionId, companyId) {
     sales += total; tax += n(o.tax_amount); discounts += n(o.discount_amount);
     if (pm === "split") {
       if (credit > 0) addTender("Member Credit", credit);
-      if (total - credit > 0) addTender("Card", total - credit);
+      var legs = parseSplitLegs(o.payment_details);
+      var legSum = 0;
+      legs.forEach(function (lg) { legSum += lg.amount; addTender(prettyMethod(lg.method), lg.amount); });
+      // Fallback for old split rows with no usable breakdown: keep previous behaviour
+      if (legs.length === 0 && total - credit > 0) addTender("Card", total - credit);
+      else if (total - credit - legSum > 0.004) addTender("Card", total - credit - legSum);
     } else {
       addTender(prettyMethod(pm), total);
     }
