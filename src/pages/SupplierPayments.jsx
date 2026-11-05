@@ -69,6 +69,7 @@ export default function SupplierPayments() {
   const [bulkStoreId, setBulkStoreId] = useState("");
   const [bulkPlan, setBulkPlan] = useState(null); // { groups: [{supplier_id, supplier_name, lines: [...]}], noSupplier: [...], onOrder: n }
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkSkip, setBulkSkip] = useState({}); // supplier_id -> true when unticked
   const autoFillKey = useRef("");
   const [showPayment, setShowPayment] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
@@ -520,7 +521,7 @@ export default function SupplierPayments() {
   // ── Bulk reorder (all suppliers for one store) ──
   const buildBulkPlan = async (storeId) => {
     if (!canReorder || !storeId) return;
-    setBulkBusy(true); setBulkPlan(null);
+    setBulkBusy(true); setBulkPlan(null); setBulkSkip({});
     try {
       const rows = [];
       for (let from = 0; ; from += 1000) {
@@ -573,8 +574,8 @@ export default function SupplierPayments() {
 
   const createBulkOrders = async () => {
     if (!bulkPlan || !bulkStoreId) return;
-    const groups = bulkPlan.groups.map(g => ({ ...g, lines: g.lines.filter(l => Number(l.quantity) > 0) })).filter(g => g.lines.length);
-    if (!groups.length) { toast.error("Nothing to order"); return; }
+    const groups = bulkPlan.groups.filter(g => !bulkSkip[g.supplier_id]).map(g => ({ ...g, lines: g.lines.filter(l => Number(l.quantity) > 0) })).filter(g => g.lines.length);
+    if (!groups.length) { toast.error("Tick at least one supplier with items to order"); return; }
     setBulkBusy(true);
     try {
       const uid = (await supabase.auth.getUser()).data.user?.id || null;
@@ -1353,13 +1354,21 @@ export default function SupplierPayments() {
                   Items at or below their reorder point are ordered at the preferred quantity, one purchase order per supplier. Remove or change lines first. Nothing is received or owed until the goods arrive.
                   {bulkPlan.onOrder > 0 && ` ${bulkPlan.onOrder} item${bulkPlan.onOrder === 1 ? " is" : "s are"} already on an open order and skipped.`}
                 </p>
+                {bulkPlan.groups.length > 1 && (
+                  <div className="flex gap-3 text-sm">
+                    <button type="button" className="underline" onClick={() => setBulkSkip({})}>Select all suppliers</button>
+                    <button type="button" className="underline" onClick={() => setBulkSkip(Object.fromEntries(bulkPlan.groups.map(g => [g.supplier_id, true])))}>Clear all</button>
+                  </div>
+                )}
                 {bulkPlan.groups.length === 0 && <p className="text-sm">Nothing to order for this store{bulkPlan.withLevels === 0 ? " (no reorder levels are loaded for it)" : ""}.</p>}
                 {bulkPlan.groups.map(g => {
                   const total = g.lines.reduce((sum, l) => sum + (Number(l.line_total) || 0), 0);
                   return (
-                    <div key={g.supplier_id} className="border rounded-lg">
+                    <div key={g.supplier_id} className={`border rounded-lg ${bulkSkip[g.supplier_id] ? "opacity-50" : ""}`}>
                       <div className="flex justify-between items-center px-3 py-2 bg-muted/40 rounded-t-lg">
-                        <span className="font-medium">{g.supplier_name} <span className="text-xs text-muted-foreground">({g.lines.length} item{g.lines.length === 1 ? "" : "s"})</span></span>
+                        <label className="font-medium flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" className="w-4 h-4" checked={!bulkSkip[g.supplier_id]} onChange={e => setBulkSkip(prev => ({ ...prev, [g.supplier_id]: !e.target.checked }))} />
+                          {g.supplier_name} <span className="text-xs text-muted-foreground">({g.lines.length} item{g.lines.length === 1 ? "" : "s"})</span></label>
                         <span className="text-sm">{formatCurrency(total)}</span>
                       </div>
                       <div className="divide-y">
@@ -1385,8 +1394,8 @@ export default function SupplierPayments() {
             )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setBulkOpen(false)}>Close</Button>
-              <Button disabled={bulkBusy || !bulkPlan || bulkPlan.groups.length === 0} onClick={createBulkOrders}>
-                {bulkBusy ? "Working..." : `Create ${bulkPlan ? bulkPlan.groups.length : 0} purchase order${bulkPlan && bulkPlan.groups.length === 1 ? "" : "s"}`}
+              <Button disabled={bulkBusy || !bulkPlan || bulkPlan.groups.filter(g => !bulkSkip[g.supplier_id]).length === 0} onClick={createBulkOrders}>
+                {bulkBusy ? "Working..." : `Create ${bulkPlan ? bulkPlan.groups.filter(g => !bulkSkip[g.supplier_id]).length : 0} purchase order${bulkPlan && bulkPlan.groups.filter(g => !bulkSkip[g.supplier_id]).length === 1 ? "" : "s"}`}
               </Button>
             </div>
           </div>
