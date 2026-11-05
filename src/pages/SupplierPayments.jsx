@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useCompany } from "../lib/CompanyContext";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,7 +44,10 @@ const parseItems = (raw) => {
 };
 
 export default function SupplierPayments() {
-  const { companyId, activeStoreId, company, stores } = useCompany();
+  const { companyId, activeStoreId, company, stores, role } = useCompany();
+  const { profile } = useAuth();
+  // Reorder lists are drawn up by named people only (profiles.extra_pages has 'reorder_list'), plus owners/admins.
+  const canReorder = ['owner', 'admin', 'superadmin'].includes(role) || (Array.isArray(profile?.extra_pages) && profile.extra_pages.includes('reorder_list'));
   const [suppliers, setSuppliers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -59,6 +63,8 @@ export default function SupplierPayments() {
   // 'receive' = record a delivery (original flow); 'order' = raise an order to send to the supplier
   const [orderMode, setOrderMode] = useState("receive");
   const [receivingPoId, setReceivingPoId] = useState(null);
+  const [reorderLoading, setReorderLoading] = useState(false);
+  const autoFillKey = useRef("");
   const [showPayment, setShowPayment] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -460,6 +466,61 @@ export default function SupplierPayments() {
     });
   };
 
+  // ── Auto-fill a supplier order from reorder levels ──
+  // Everything this store takes from this supplier that is at or below its reorder point,
+  // at its preferred quantity (gap to reorder point if none). The user then deletes or edits
+  // lines before saving. Lines the user typed in themselves are kept.
+  const fillOrderFromReorder = async (supplierId, storeId) => {
+    if (!canReorder || !supplierId || !storeId) return;
+    setReorderLoading(true);
+    try {
+      const rows = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from("store_inventory")
+          .select("product_id, stock_quantity, reorder_point, preferred_quantity, cost_price")
+          .eq("company_id", companyId).eq("store_id", storeId).eq("supplier_id", supplierId)
+          .gt("reorder_point", 0).order("product_id").range(from, from + 999);
+        if (error) throw error;
+        rows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      const byId = Object.fromEntries(products.map(p => [p.id, p]));
+      const low = rows.filter(r => Number(r.stock_quantity) <= Number(r.reorder_point) && byId[r.product_id]);
+      const auto = low.map(r => {
+        const p = byId[r.product_id];
+        const pref = Number(r.preferred_quantity) || 0;
+        const qty = pref > 0 ? pref : Math.max(1, (Number(r.reorder_point) || 0) - (Number(r.stock_quantity) || 0));
+        const cost = Number(r.cost_price) || Number(p.cost_price) || 0;
+        return { product_id: p.id, product_name: p.name, quantity: qty, cost_price: cost, line_total: qty * cost, received_quantity: 0, _auto: true };
+      });
+      setOrderForm(prev => ({ ...prev, items: [...prev.items.filter(i => !i._auto), ...auto.filter(a => !prev.items.some(i => !i._auto && i.product_id === a.product_id))] }));
+      if (!rows.length) toast.info("No reorder levels are set for this store and supplier. Add items by hand.");
+      else if (!auto.length) toast.success("Nothing is at or below its reorder level for this supplier.");
+      else toast.success(`${auto.length} item${auto.length === 1 ? "" : "s"} at or below reorder level loaded. Delete or edit what you are not ordering, then create the order.`);
+    } catch (e) { toast.error(e.message || "Could not load reorder levels"); }
+    finally { setReorderLoading(false); }
+  };
+
+  // Load automatically as soon as both supplier and store are chosen on a new order
+  useEffect(() => {
+    if (!showNewOrder || orderMode !== "order" || !canReorder) { if (!showNewOrder) autoFillKey.current = ""; return; }
+    if (!orderForm.supplier_id || !orderForm.store_id || !products.length) return;
+    const key = orderForm.supplier_id + "|" + orderForm.store_id;
+    if (autoFillKey.current === key) return;
+    autoFillKey.current = key;
+    fillOrderFromReorder(orderForm.supplier_id, orderForm.store_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNewOrder, orderMode, orderForm.supplier_id, orderForm.store_id, products.length, canReorder]);
+
+  const setOrderQty = (idx, val) => {
+    setOrderForm(prev => ({
+      ...prev,
+      items: prev.items.map((it, i) => i === idx
+        ? { ...it, quantity: val === "" ? "" : Math.max(0, Number(val)), line_total: (val === "" ? 0 : Math.max(0, Number(val))) * (Number(it.cost_price) || 0) }
+        : it),
+    }));
+  };
+
   // ── Order-first helpers ──
   const newPoNumber = () => {
     const d = new Date();
@@ -470,6 +531,7 @@ export default function SupplierPayments() {
   const openNewSupplierOrder = () => {
     setOrderMode("order");
     setReceivingPoId(null);
+    autoFillKey.current = "";
     setOrderForm({ ...emptyOrderForm, order_number: newPoNumber(), store_id: activeStoreId || (stores[0] && stores[0].id) || "" });
     setShowNewOrder(true);
   };
@@ -562,6 +624,7 @@ export default function SupplierPayments() {
         received_quantity: 0,
       }];
     }
+    items = items.filter(i => Number(i.quantity) > 0);
     if (items.length === 0) { toast.error("Add at least one item to order"); return; }
     setIsSaving(true);
     try {
@@ -573,7 +636,7 @@ export default function SupplierPayments() {
         order_number: orderForm.order_number || newPoNumber(),
         invoice_total: calcTotal,
         calculated_total: calcTotal,
-        items: JSON.stringify(items.map(i => ({ ...i, received_quantity: 0 }))),
+        items: JSON.stringify(items.filter(i => Number(i.quantity) > 0).map(({ _auto, ...i }) => ({ ...i, received_quantity: 0 }))),
         notes: orderForm.notes || null,
         payment_type: "terms",
         status: "ordered",
@@ -1389,6 +1452,12 @@ export default function SupplierPayments() {
               <Label>Date Received</Label>
               <Input type="date" value={orderForm.order_date} onChange={e => setOrderForm(p => ({ ...p, order_date: e.target.value }))} className="[color-scheme:dark]" />
             </div></>)}
+            {orderMode === "order" && canReorder && (
+              <Button type="button" variant="outline" size="sm" className="w-full" disabled={reorderLoading || !orderForm.supplier_id || !orderForm.store_id}
+                onClick={() => fillOrderFromReorder(orderForm.supplier_id, orderForm.store_id)}>
+                {reorderLoading ? "Loading reorder levels..." : "Reload from reorder levels"}
+              </Button>
+            )}
             <div className="border border-border rounded-lg p-3 space-y-3">
               <h4 className="text-xs font-semibold text-muted-foreground">Line Items — pick existing products so stock updates automatically</h4>
               <div className="grid grid-cols-4 gap-2">
@@ -1408,7 +1477,9 @@ export default function SupplierPayments() {
                         {item.product_id
                           ? <PackageCheck className="w-3.5 h-3.5 text-green-400 shrink-0" />
                           : <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                        {item.quantity}× {item.product_name} @ {formatCurrency(item.cost_price)}
+                        {orderMode === "order"
+                          ? <><input type="number" min="0" value={item.quantity} onChange={e => setOrderQty(idx, e.target.value)} className="w-14 h-6 rounded border border-border bg-background px-1 text-xs" /> × {item.product_name}{Number(item.cost_price) > 0 ? <> @ {formatCurrency(item.cost_price)}</> : null}</>
+                          : <>{item.quantity}× {item.product_name} @ {formatCurrency(item.cost_price)}</>}
                       </span>
                       <div className="flex items-center gap-2">
                         {orderMode !== "order" && <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
