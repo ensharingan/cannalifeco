@@ -115,11 +115,15 @@ export default function StockCounts() {
           setForm(function (f) { return { ...f, store_id: activeStoreId }; });
         }
 
-        var cRes = await supabase.from("products").select("category")
-          .eq("company_id", prof.company_id).not("category", "is", null);
+        // Product group (the shops' drawer groups) wins over the broad category when a product has one.
+        var cRes = await supabase.from("products").select("category, product_group")
+          .eq("company_id", prof.company_id).eq("is_active", true);
         if (!cancelled) {
           var seen = {};
-          (cRes.data || []).forEach(function (c) { if (c.category) seen[c.category] = true; });
+          (cRes.data || []).forEach(function (c) {
+            var label = (c.product_group && c.product_group.trim()) || c.category;
+            if (label) seen[label] = true;
+          });
           setCategories(Object.keys(seen).sort());
         }
 
