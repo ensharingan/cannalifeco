@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Minus, Plus, Trash2, ShoppingCart, Wallet, CreditCard, Receipt, Banknote, Smartphone, ArrowLeftRight, User, Tag, CheckCircle2, Ticket, AlertTriangle, Lock, X, Percent, ChevronDown, ChevronUp, Link2, Copy, MessageCircle } from "lucide-react";
 import { formatCurrency } from "../../lib/currency";
 import { supabase } from "@/api/supabaseClient";
@@ -389,6 +389,7 @@ export default function CartPanel({
   voucherMode,
   creditUnit,
   creditRate,
+  command,
 }) {
   var companyCtx = useCompany() || {};
   var company = companyCtx.company;
@@ -739,6 +740,35 @@ export default function CartPanel({
   // Promotions and promo codes already carry their own name, so they don't.
   var needsDiscountNote = canDiscount && (lineDiscountTotal > 0 || manualDiscountAmount > 0);
   var discountNoteOk = !needsDiscountNote || discountNote.trim().length > 0;
+  // Commands from the POS top toolbar (Aronium-style buttons). They only
+  // SELECT things and move focus. Nothing here ever charges the sale, so a
+  // stray key press cannot complete a transaction.
+  var discountInputRef = useRef(null);
+  var chargeBtnRef = useRef(null);
+  var lastCommandNonce = useRef(0);
+  useEffect(function () {
+    if (!command || !command.nonce || command.nonce === lastCommandNonce.current) return;
+    lastCommandNonce.current = command.nonce;
+    var t = command.type;
+    if (t === "cash" || t === "card" || t === "payment_link") {
+      if (isVoucher) { toast.error("Vouchers are redeemed against credit only."); return; }
+      setPaymentMethod(t);
+      setConfirmedSplitDetails(null);
+    } else if (t === "eft") {
+      if (isVoucher) { toast.error("Vouchers are redeemed against credit only."); return; }
+      if (cart.length === 0) { toast.error("Add items first."); return; }
+      setPaymentMethod("split");
+      setConfirmedSplitDetails(null);
+      setShowSplitDialog(true);
+    } else if (t === "discount") {
+      if (discountInputRef.current) { discountInputRef.current.focus(); discountInputRef.current.select(); }
+      else toast.error("Discounts are locked for cashiers. Ask a manager.");
+    } else if (t === "pay") {
+      if (chargeBtnRef.current && !chargeBtnRef.current.disabled) chargeBtnRef.current.focus();
+      else toast.error("Nothing to charge yet. Check the cart and payment details.");
+    }
+  }, [command]);
+
   var canCheckout = cart.length > 0 && discountNoteOk && paymentMethod && !isProcessing && cashOk && splitOk && voucherOk && linkOk;
 
   var handleQtyChange = function (key, value) {
@@ -1061,7 +1091,7 @@ export default function CartPanel({
                 <SelectItem value="rand">R</SelectItem>
               </SelectContent>
             </Select>
-            <Input type="number" min={0} max={discountType === "percentage" ? 100 : subtotal}
+            <Input ref={discountInputRef} type="number" min={0} max={discountType === "percentage" ? 100 : subtotal}
               step={discountType === "percentage" ? 1 : 5}
               value={discountInput}
               onChange={function (e) { setDiscountInput(e.target.value); }}
@@ -1323,6 +1353,7 @@ export default function CartPanel({
         {/* Charge — full-width, tall tap target, above anything floating */}
         <Button
           type="button"
+          ref={chargeBtnRef}
           onClick={handleCheckout}
           disabled={!canCheckout}
           size="lg"

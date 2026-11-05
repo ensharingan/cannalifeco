@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { Search, QrCode, X, ShoppingCart, ScanLine, Scale, Receipt, CheckCircle, UserCheck, AlertTriangle, Tag, Banknote, PackageSearch, RefreshCw, Ticket, CreditCard, Lock, Store, Wallet, ShoppingBag, UserPlus, Truck, PenLine } from "lucide-react";
+import { Search, QrCode, X, ShoppingCart, ScanLine, Scale, Receipt, CheckCircle, UserCheck, AlertTriangle, Tag, Banknote, PackageSearch, RefreshCw, Ticket, CreditCard, Lock, Store, Wallet, ShoppingBag, UserPlus, Truck, PenLine, Percent, Save, Smartphone, Link2, ArrowLeftRight } from "lucide-react";
 import BarcodeScanner from "../components/pos/BarcodeScanner";
 import useBarcodeScanner from "../hooks/useBarcodeScanner";
 import {
@@ -313,6 +313,25 @@ export default function POS() {
   var [receipt, setReceipt] = useState(null);
   var [showCart, setShowCart] = useState(false);
   var [showScanner, setShowScanner] = useState(false);
+  var [cartCommand, setCartCommand] = useState(null);
+  var searchInputRef = useRef(null);
+  var fireCmd = function (type) { setCartCommand({ type: type, nonce: Date.now() + Math.random() }); };
+  // Keyboard shortcuts for the top bar. Avoids F5 (reload), F11 and F12 (browser).
+  useEffect(function () {
+    var onKey = function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      var map = { F3: "customer", F4: "discount", F6: "eft", F7: "card", F8: "cash", F9: "tabs", F10: "pay" };
+      if (e.key === "F2") { e.preventDefault(); if (searchInputRef.current) searchInputRef.current.focus(); return; }
+      var a = map[e.key];
+      if (!a) return;
+      e.preventDefault();
+      if (a === "customer") setShowMemberDialog(true);
+      else if (a === "tabs") setShowTabsSheet(true);
+      else fireCmd(a);
+    };
+    window.addEventListener("keydown", onKey);
+    return function () { window.removeEventListener("keydown", onKey); };
+  }, []);
   var [activeSession, setActiveSession] = useState(null);
   var [sessionResolved, setSessionResolved] = useState(false);
   var [tierPickerProduct, setTierPickerProduct] = useState(null);
@@ -1902,11 +1921,38 @@ export default function POS() {
 
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Aronium-style action bar so cashiers moving over from the old POS
+              find the same buttons in the same order. Payment buttons only
+              SELECT the method; the Charge button still has to be pressed. */}
+          <div className="hidden md:flex items-stretch gap-1.5 px-4 pt-3 pb-1 overflow-x-auto">
+            {[
+              { k: "search", label: "Search", sub: "F2", icon: Search, run: function () { if (searchInputRef.current) searchInputRef.current.focus(); } },
+              { k: "customer", label: "Customer", sub: "F3", icon: UserCheck, run: function () { setShowMemberDialog(true); } },
+              { k: "discount", label: "Discount", sub: "F4", icon: Percent, run: function () { fireCmd("discount"); } },
+              { k: "tabs", label: "Save sale", sub: "F9", icon: Save, run: function () { setShowTabsSheet(true); }, hide: hideOpenTabs },
+              { k: "pay", label: "Payment", sub: "F10", icon: CheckCircle, run: function () { fireCmd("pay"); } },
+              { k: "cash", label: "Cash", sub: "F8", icon: Banknote, run: function () { fireCmd("cash"); }, method: "cash" },
+              { k: "card", label: "Card", sub: "F7", icon: CreditCard, run: function () { fireCmd("card"); }, method: "card" },
+              { k: "eft", label: "EFT", sub: "F6", icon: ArrowLeftRight, run: function () { fireCmd("eft"); }, method: "split" },
+              { k: "payment_link", label: "Payment Link", sub: "\u00a0", icon: Link2, run: function () { fireCmd("payment_link"); }, method: "payment_link" },
+            ].filter(function (b) { return !b.hide; }).map(function (b) {
+              var Icon = b.icon;
+              var active = b.method && paymentMethod === b.method && cart.length > 0;
+              return (
+                <button key={b.k} type="button" onClick={b.run} disabled={storeMismatch}
+                  className={"flex flex-col items-center justify-center min-w-[78px] px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors disabled:opacity-40 " + (active ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-border")}>
+                  <Icon className="w-5 h-5 mb-0.5" />
+                  <span className="leading-tight whitespace-nowrap">{b.label}</span>
+                  <span className="text-[9px] opacity-60 leading-tight">{b.sub}</span>
+                </button>
+              );
+            })}
+          </div>
           <div className="p-4 border-b border-border space-y-3">
             <div className="flex flex-wrap gap-2">
               <div className="relative w-64 shrink-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Search products..." value={searchTerm} onChange={function (e) { setSearchTerm(e.target.value); }} className="pl-10" disabled={storeMismatch} />
+                <Input ref={searchInputRef} placeholder="Search products..." value={searchTerm} onChange={function (e) { setSearchTerm(e.target.value); }} className="pl-10" disabled={storeMismatch} />
               </div>
               <Button variant="outline" size="icon" className="shrink-0" onClick={function () { setShowScanner(true); }} title="Scan barcode (camera)" disabled={storeMismatch}>
                 <ScanLine className="w-4 h-4" />
@@ -2152,7 +2198,7 @@ export default function POS() {
         </div>
 
         <div className="w-80 lg:w-96 hidden lg:flex">
-          <CartPanel {...cartPanelProps} />
+          <CartPanel {...cartPanelProps} command={cartCommand} />
         </div>
 
         {cart.length > 0 && !showCart && (
