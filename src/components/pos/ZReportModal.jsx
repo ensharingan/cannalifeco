@@ -27,6 +27,7 @@ function prettyMethod(m) {
   if (k === "cash") return "Cash";
   if (k === "mobile") return "Mobile";
   if (k === "credit") return "Member Credit";
+  if (k === "payment_link" || k === "pay link" || k === "paylink") return "Pay Link";
   if (!k) return "Other";
   return k.charAt(0).toUpperCase() + k.slice(1);
 }
@@ -132,6 +133,7 @@ async function buildReport(sessionId, companyId) {
     opening: opening, expected: expected, counted: counted,
     variance: counted != null ? counted - expected : null,
     cardCounted: s.closing_card_total != null ? n(s.closing_card_total) : null,
+    linkCounted: s.closing_paylink_total != null ? n(s.closing_paylink_total) : null,
     products: products, groups: groups, itemCount: itemCount,
   };
 }
@@ -202,6 +204,7 @@ function ReportBody({ rep, storeName, final }) {
       {rep.counted != null && <Line l="Counted cash" r={money(rep.counted)} />}
       {rep.variance != null && <Line l={rep.variance < -0.005 ? "Short" : rep.variance > 0.005 ? "Over" : "Variance"} r={money(rep.variance)} bold />}
       {rep.cardCounted != null && <Line l="Card machine" r={money(rep.cardCounted)} />}
+      {rep.linkCounted != null && <Line l="Pay links" r={money(rep.linkCounted)} />}
       <Rule solid />
       <div style={{ textAlign: "center", fontWeight: 700 }}>ITEMS REPORT</div>
       <Rule />
@@ -254,6 +257,7 @@ function reportLines(rep, storeName, final) {
   if (rep.counted != null) row("Counted cash", money(rep.counted));
   if (rep.variance != null) row(rep.variance < -0.005 ? "Short" : rep.variance > 0.005 ? "Over" : "Variance", money(rep.variance), true);
   if (rep.cardCounted != null) row("Card machine", money(rep.cardCounted));
+  if (rep.linkCounted != null) row("Pay links", money(rep.linkCounted));
   rule();
   L.push({ t: "center", text: "ITEMS REPORT", bold: true });
   rule();

@@ -38,6 +38,7 @@ export default function CashierSessionBar({ onSessionChange }) {
   const [showClose, setShowClose] = useState(false);
   const [closingFloat, setClosingFloat] = useState("");
   const [closingCard, setClosingCard] = useState("");
+  const [closingLink, setClosingLink] = useState("");
   // The count stays blind, but the result no longer disappears into the
   // database unseen — this holds the reconciliation to show back afterwards.
   const [closeResult, setCloseResult] = useState(null);
@@ -181,6 +182,7 @@ export default function CashierSessionBar({ onSessionChange }) {
     try {
       const actual = parseFloat(closingFloat);
       const cardTotal = closingCard !== "" ? parseFloat(closingCard) : null;
+      const linkTotal = closingLink !== "" ? parseFloat(closingLink) : null;
       const sessionId = session.id;
       setLastClosedId(sessionId);
 
@@ -190,6 +192,7 @@ export default function CashierSessionBar({ onSessionChange }) {
           closing_time: new Date().toISOString(),
           closing_float: actual,
           closing_card_total: cardTotal,
+          closing_paylink_total: linkTotal,
           status: "closed",
         })
         .eq("id", sessionId);
@@ -209,7 +212,7 @@ export default function CashierSessionBar({ onSessionChange }) {
         if (!sumErr) summary = sum;
       } catch (_) { /* reconciliation is informational — never block the close */ }
 
-      setCloseResult(summary || { closing_float: actual, closing_card: cardTotal });
+      setCloseResult(summary || { closing_float: actual, closing_card: cardTotal, closing_paylink: linkTotal });
       setSession(null);
       if (onSessionChange) onSessionChange(null);
       toast.success("Session closed");
@@ -225,6 +228,7 @@ export default function CashierSessionBar({ onSessionChange }) {
     setCloseResult(null);
     setClosingFloat("");
     setClosingCard("");
+    setClosingLink("");
   };
 
   if (loading) return null;
@@ -296,7 +300,7 @@ export default function CashierSessionBar({ onSessionChange }) {
                 <Receipt className="w-3.5 h-3.5" /> Day End
               </Button>
               <Button size="sm" variant="destructive" className="h-7 text-xs gap-1"
-                onClick={() => { setClosingFloat(""); setClosingCard(""); setCloseResult(null); setShowClose(true); }}>
+                onClick={() => { setClosingFloat(""); setClosingCard(""); setClosingLink(""); setCloseResult(null); setShowClose(true); }}>
                 <StopCircle className="w-3.5 h-3.5" /> Close Day
               </Button>
             </div>
@@ -425,6 +429,17 @@ export default function CashierSessionBar({ onSessionChange }) {
                 />
                 <p className="text-xs text-muted-foreground mt-1">Total off the card machine for your shift.</p>
               </div>
+              <div>
+                <Label>Pay Links</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={closingLink}
+                  onChange={e => setClosingLink(e.target.value)}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Total of all payment links paid during your shift.</p>
+              </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={dismissClose}>Cancel</Button>
                 <Button variant="destructive" className="flex-1 gap-2" onClick={closeSession} disabled={saving}>
@@ -450,6 +465,15 @@ export default function CashierSessionBar({ onSessionChange }) {
                   closeResult.expected_card,
                   closeResult.closing_card,
                   Number(closeResult.closing_card || 0) - Number(closeResult.expected_card || 0)
+                )
+              )}
+
+              {closeResult.closing_paylink !== null && closeResult.closing_paylink !== undefined && (
+                renderVarianceRow(
+                  "Pay links",
+                  closeResult.expected_paylink,
+                  closeResult.closing_paylink,
+                  Number(closeResult.closing_paylink || 0) - Number(closeResult.expected_paylink || 0)
                 )
               )}
 
