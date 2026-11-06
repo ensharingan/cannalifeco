@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from '@/api/supabaseClient';
-import { Plus, Search, Trash2, ClipboardList, Eye, Truck } from "lucide-react";
+import { Plus, Search, Trash2, ClipboardList, Eye, Truck, ClipboardPaste } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCompany } from "../lib/CompanyContext";
 import { useAuth } from "@/lib/AuthContext";
+import PasteStockList from "@/components/PasteStockList";
 
 const statusStyle = {
   requested: "bg-blue-500/10 text-blue-600 border-blue-200",
@@ -51,6 +52,7 @@ export default function StockRequests() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("open");
   const [open, setOpen] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
   const [view, setView] = useState(null);       // { req, lines }
   const [header, setHeader] = useState({ store_id: "", supplier_id: "", notes: "" });
   const [lines, setLines] = useState([]);
@@ -238,7 +240,10 @@ export default function StockRequests() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6" /> Stock Requests</h1>
           <p className="text-sm text-muted-foreground">Ask the stock room or a supplier for stock. When it arrives, receive it on a GRV against the request so nothing lands on the shelf unrecorded.</p>
         </div>
-        <Button onClick={newRequest}><Plus className="w-4 h-4 mr-1" /> New request</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setPasteOpen(true)}><ClipboardPaste className="w-4 h-4 mr-1" /> Paste list</Button>
+          <Button onClick={newRequest}><Plus className="w-4 h-4 mr-1" /> New request</Button>
+        </div>
       </div>
 
       <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -296,6 +301,9 @@ export default function StockRequests() {
               </Select>
             </div>
           </div>
+          <Button type="button" variant="outline" className="w-full gap-2" onClick={() => { setOpen(false); setPasteOpen(true); }}>
+            <ClipboardPaste className="w-4 h-4" /> Paste a list (WhatsApp text)
+          </Button>
           {canReorder && <Button type="button" variant="outline" className="w-full gap-2" onClick={fillFromReorder} disabled={filling || !header.store_id || !header.supplier_id}>
             {filling ? 'Checking reorder levels...' : 'Fill from reorder levels (items at or below reorder point)'}
           </Button>}
@@ -333,6 +341,14 @@ export default function StockRequests() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PasteStockList
+        open={pasteOpen} onOpenChange={setPasteOpen} companyId={companyId}
+        products={products} stores={stores} suppliers={suppliers}
+        defaultStoreId={stores.length === 1 ? stores[0].id : ""}
+        defaultSupplierId={suppliers.filter(x => x.is_internal).length === 1 ? suppliers.find(x => x.is_internal).id : ""}
+        onSent={load}
+      />
 
       <Dialog open={!!view} onOpenChange={o => { if (!o) setView(null); }}>
         <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
