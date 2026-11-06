@@ -1477,6 +1477,9 @@ export default function POS() {
         discount_note: checkoutData && checkoutData.discountNote ? checkoutData.discountNote : null,
         payment_method: finalPaymentMethod, payment_details: paymentDetails ? JSON.stringify(paymentDetails) : null,
         credit_applied: appliedCredit || 0,
+        // Tube return trade-in. Not part of discount_amount on purpose; the DB logs it to tube_returns.
+        tube_credit_amount: checkoutData && checkoutData.tubeCredit ? Math.round(checkoutData.tubeCredit.amount * 100) / 100 : 0,
+        tubes_returned: checkoutData && checkoutData.tubeCredit ? checkoutData.tubeCredit.tubes : 0,
         status: finalPaymentMethod === "unpaid" ? "unpaid" : "completed",
         order_type: voucherMode ? "collection" : "pos",
         items: JSON.stringify(orderItems), cashier_session_id: activeSession.id,

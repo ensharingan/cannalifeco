@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Minus, Plus, Trash2, ShoppingCart, Wallet, CreditCard, Receipt, Banknote, Smartphone, ArrowLeftRight, User, Tag, CheckCircle2, Ticket, AlertTriangle, Lock, X, Percent, ChevronDown, ChevronUp, Link2, Copy, MessageCircle } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingCart, Wallet, CreditCard, Receipt, Banknote, Smartphone, ArrowLeftRight, User, Tag, CheckCircle2, Ticket, AlertTriangle, Lock, X, Percent, ChevronDown, ChevronUp, Link2, Copy, MessageCircle, Recycle } from "lucide-react";
 import { formatCurrency } from "../../lib/currency";
 import { supabase } from "@/api/supabaseClient";
 import { useCompany } from "../../lib/CompanyContext";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ManagerPinDialog from "../orders/ManagerPinDialog";
 import { toast } from "sonner";
 import { openWhatsApp, memberWaNumber } from "../../lib/waPhone";
 import { cn } from "@/lib/utils";
@@ -408,6 +409,12 @@ export default function CartPanel({
   // through once the cashier confirms the money has arrived.
   var [linkOverride, setLinkOverride] = useState(null);
   var [linkPaid, setLinkPaid] = useState(false);
+  // Tube return credit: batches of empties handed in against this sale. A trade-in
+  // taken after discounts, like store credit — never through the discount fields.
+  var [tubeBatches, setTubeBatches] = useState(0);
+  var [tubesCounted, setTubesCounted] = useState(false);
+  var [tubePinOpen, setTubePinOpen] = useState(false);
+  var [tubeApproved, setTubeApproved] = useState(false);
 
   // Which cart line is open for editing (qty + its own discount). One at a
   // time keeps the list short on a phone.
@@ -504,7 +511,19 @@ export default function CartPanel({
   // What the order records as its discount: line discounts plus everything else.
   var totalDiscountAmount = lineDiscountTotal + cartLevelDiscount;
   var creditApplied = appliedCredit || 0;
-  var total = Math.max(0, subtotal - cartLevelDiscount - creditApplied);
+  // Tube return credit. Off unless the club has switched it on. It comes off what is
+  // still owing after discounts and store credit, so it can never push the sale
+  // below zero (no cash back) and never changes a price or a promo.
+  var tubeOn = !isVoucher && posSettings != null && posSettings.tube_return_enabled === true;
+  var tubeBatchSize = Number(posSettings && posSettings.tube_return_batch) > 0 ? Number(posSettings.tube_return_batch) : 10;
+  var tubeBatchValue = Number(posSettings && posSettings.tube_return_credit) > 0 ? Number(posSettings.tube_return_credit) : 80;
+  var dueBeforeTube = Math.max(0, subtotal - cartLevelDiscount - creditApplied);
+  // No point taking more tubes than the sale can absorb.
+  var tubeMaxBatches = tubeOn ? Math.ceil(dueBeforeTube / tubeBatchValue - 0.0001) : 0;
+  var tubeBatchesUsed = tubeOn ? Math.max(0, Math.min(tubeBatches, tubeMaxBatches)) : 0;
+  var tubeCredit = Math.min(tubeBatchesUsed * tubeBatchValue, dueBeforeTube);
+  var tubesReturned = tubeBatchesUsed * tubeBatchSize;
+  var total = Math.max(0, dueBeforeTube - tubeCredit);
 
   var membershipFee = 0;
   if (!isWalkIn && storeSettings && storeSettings.auto_add_membership_fee && storeSettings.membership_fee && selectedMember) {
@@ -562,6 +581,9 @@ export default function CartPanel({
     setExpandedKey(null);
     setEditingDisc({});
     setEditingQty({});
+    setTubeBatches(0);
+    setTubesCounted(false);
+    setTubeApproved(false);
   }, [cart.length]);
 
   // If the club switches discounts off mid-shift, drop anything already typed —
@@ -708,6 +730,8 @@ export default function CartPanel({
           }
         : null,
       membershipFee: membershipFee,
+      // Trade-in, not a discount: kept out of discountAmount on purpose.
+      tubeCredit: tubeBatchesUsed > 0 ? { amount: tubeCredit, tubes: tubesReturned, batches: tubeBatchesUsed } : null,
       paymentMethod: effectiveMethod,
       paymentDetails: paymentDetails,
       cashTendered: !isVoucher && paymentMethod === "cash" ? (hasTendered ? tendered : grandTotal) : null,
@@ -769,7 +793,9 @@ export default function CartPanel({
     }
   }, [command]);
 
-  var canCheckout = cart.length > 0 && discountNoteOk && paymentMethod && !isProcessing && cashOk && splitOk && voucherOk && linkOk;
+  // Tubes must be physically counted before the credit can be charged.
+  var tubeOk = tubeBatchesUsed === 0 || tubesCounted;
+  var canCheckout = cart.length > 0 && discountNoteOk && paymentMethod && !isProcessing && cashOk && splitOk && voucherOk && linkOk && tubeOk;
 
   var handleQtyChange = function (key, value) {
     setEditingQty(function (prev) { var n = { ...prev }; n[key] = value; return n; });
@@ -1180,6 +1206,45 @@ export default function CartPanel({
               </Button>
             )}
 
+            {/* Tube return credit (trade-in) */}
+            {tubeOn && cart.length > 0 && (
+              <div className="rounded-md border border-border p-2 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Recycle className="w-4 h-4 text-primary shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold leading-tight">Tube return credit</p>
+                    <p className="text-[11px] text-muted-foreground leading-tight">{tubeBatchSize} empty tubes = {formatCurrency(tubeBatchValue)} off the sale</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" className="h-7 w-7" disabled={tubeBatchesUsed <= 0}
+                      onClick={function () { setTubeBatches(Math.max(0, tubeBatchesUsed - 1)); if (tubeBatchesUsed - 1 <= 0) setTubesCounted(false); }}>
+                      <Minus className="w-3 h-3" />
+                    </Button>
+                    <span className="w-6 text-center text-sm font-bold">{tubeBatchesUsed}</span>
+                    <Button variant="outline" size="icon" className="h-7 w-7" disabled={tubeBatchesUsed >= tubeMaxBatches}
+                      onClick={function () {
+                        // The second batch on one sale needs a manager, unless the user is one.
+                        if (tubeBatchesUsed >= 1 && !isManager && !tubeApproved) { setTubePinOpen(true); return; }
+                        setTubeBatches(tubeBatchesUsed + 1);
+                      }}>
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                {tubeBatchesUsed > 0 && (
+                  <>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input type="checkbox" checked={tubesCounted} onChange={function (e) { setTubesCounted(e.target.checked); }} />
+                      <span>I have counted {tubesReturned} empty tubes</span>
+                    </label>
+                    {tubeCredit < tubeBatchesUsed * tubeBatchValue - 0.005 && (
+                      <p className="text-[11px] text-amber-500">Credit is capped at what is owing. No cash back.</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Payment method */}
             <Select value={paymentMethod} onValueChange={function (v) {
               setPaymentMethod(v);
@@ -1330,6 +1395,11 @@ export default function CartPanel({
               <span>{isVoucher ? "Redeemed" : "Store Credit"}</span><span>-{money(creditApplied)}</span>
             </div>
           )}
+          {tubeCredit > 0 && (
+            <div className="flex justify-between text-blue-500">
+              <span>Tube Return ({tubesReturned} tubes)</span><span>-{money(tubeCredit)}</span>
+            </div>
+          )}
           {membershipFee > 0 && (
             <div className="flex justify-between text-amber-500">
               <span>Membership Fee</span><span>+{money(membershipFee)}</span>
@@ -1381,6 +1451,18 @@ export default function CartPanel({
         onClose={function () { setShowSplitDialog(false); }}
         grandTotal={grandTotal}
         onConfirm={handleSplitConfirm}
+      />
+      <ManagerPinDialog
+        open={tubePinOpen}
+        onOpenChange={setTubePinOpen}
+        companyId={companyCtx.companyId}
+        title="Manager approval"
+        description="More than one tube return credit on a single sale needs a manager PIN."
+        onApproved={function () {
+          setTubePinOpen(false);
+          setTubeApproved(true);
+          setTubeBatches(tubeBatchesUsed + 1);
+        }}
       />
     </div>
   );

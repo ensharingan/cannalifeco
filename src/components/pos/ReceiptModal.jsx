@@ -186,6 +186,7 @@ export default function ReceiptModal({ receipt, onClose }) {
       lines.push(rule);
       if (o.discount_amount > 0) lines.push({ t: "row", left: "Discount", right: "-" + formatAmount(o.discount_amount) });
       if (o.discount_amount > 0 && o.discount_note) lines.push({ t: "text", text: "Reason: " + o.discount_note });
+      if (o.tube_credit_amount > 0) lines.push({ t: "row", left: "Tube return (" + o.tubes_returned + " tubes)", right: "-" + formatAmount(o.tube_credit_amount) });
       lines.push({ t: "row", left: "TOTAL", right: formatAmount(o.total_amount), size: "big", bold: true });
       lines.push({ t: "gap" });
       lines.push({ t: "center", text: "Thank you for your visit!", bold: false });
@@ -387,6 +388,7 @@ export default function ReceiptModal({ receipt, onClose }) {
     ...items.map(function (i) { return "• " + i.name + " x" + i.quantity + " — " + formatCurrency(i.price * i.quantity); }),
     "",
     ...(order.discount_amount > 0 ? ["\uD83D\uDC9A Discount: -" + formatCurrency(order.discount_amount) + (order.discount_note ? " (" + order.discount_note + ")" : "")] : []),
+    ...(order.tube_credit_amount > 0 ? ["\u267B\uFE0F Tube return (" + order.tubes_returned + " tubes): -" + formatCurrency(order.tube_credit_amount)] : []),
     "\uD83D\uDCB3 Payment: " + paymentLabel,
     ...paymentLines,
     "",
@@ -457,6 +459,11 @@ export default function ReceiptModal({ receipt, onClose }) {
           )}
           {order.discount_amount > 0 && order.discount_note && (
             <div className="text-xs text-muted-foreground">Reason: {order.discount_note}</div>
+          )}
+          {order.tube_credit_amount > 0 && (
+            <div className="flex justify-between text-blue-600">
+              <span>Tube return ({order.tubes_returned} tubes)</span><span>-{formatAmount(order.tube_credit_amount)}</span>
+            </div>
           )}
           <div className="flex justify-between font-bold text-sm">
             <span>TOTAL</span><span>{formatAmount(order.total_amount)}</span>
