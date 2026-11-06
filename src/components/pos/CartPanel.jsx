@@ -1061,7 +1061,9 @@ export default function CartPanel({
       </div>
 
       {/* Checkout section */}
-      <div className="p-3 border-t border-border space-y-2 shrink-0 bg-card relative z-20">
+      <div className="p-3 border-t border-border shrink-0 bg-card relative z-20 flex flex-col gap-2 max-h-[65%]">
+        {/* Everything above Charge scrolls; Charge stays pinned so it can never leave the screen */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 pr-0.5">
 
         {/* Promo code */}
         {appliedCode ? (
@@ -1420,14 +1422,16 @@ export default function CartPanel({
           )}
         </div>
 
-        {/* Charge — full-width, tall tap target, above anything floating */}
+        </div>
+
+        {/* Charge — full-width, tall tap target, pinned below the scrolling block */}
         <Button
           type="button"
           ref={chargeBtnRef}
           onClick={handleCheckout}
           disabled={!canCheckout}
           size="lg"
-          className="w-full h-14 text-base font-bold relative z-30 touch-manipulation select-none"
+          className="w-full h-14 text-base font-bold relative z-30 touch-manipulation select-none shrink-0"
         >
           {isProcessing
             ? "Processing..."
