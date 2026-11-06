@@ -603,6 +603,30 @@ export default function POS() {
     return function () { cancelled = true; };
   }, [companyId, storesReady, activeStoreId, sessionResolved, loadPosData]);
 
+  // Stock changes elsewhere (product edits, GRVs, transfers, other tills) used to need a
+  // page refresh to show on the till. Re-read quietly when the tab comes back and every
+  // minute while it is open. No spinner, and the cart is untouched.
+  useEffect(function () {
+    if (!companyId || !sessionResolved) return;
+    var last = Date.now();
+    var refresh = function () {
+      if (document.visibilityState === "hidden") return;
+      if (Date.now() - last < 20000) return;
+      last = Date.now();
+      loadPosData().catch(function () {});
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    var poll = setInterval(refresh, 60000);
+    return function () {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      clearInterval(poll);
+    };
+  }, [companyId, sessionResolved, loadPosData]);
+
   var handleReload = useCallback(function () {
     setReloading(true);
     setLoadError(false);

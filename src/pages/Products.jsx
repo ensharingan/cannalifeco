@@ -1063,6 +1063,27 @@ export default function Products() {
     if (companyId) { load(); loadCompanySettings(); loadStores(); loadStoreInventory(); loadSuppliers(); }
   }, [companyId, load, loadCompanySettings, loadStores, loadStoreInventory, loadSuppliers]);
 
+  /* Stock changes made elsewhere (GRVs, transfers, counts, other tills, other people) should
+     show without a page refresh: re-read quietly when the tab comes back and every minute. */
+  useEffect(() => {
+    if (!companyId) return;
+    let last = Date.now();
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      if (Date.now() - last < 20000) return;
+      last = Date.now();
+      loadStoreInventory();
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    const poll = setInterval(refresh, 60000);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+      clearInterval(poll);
+    };
+  }, [companyId, loadStoreInventory]);
+
   /* Index inventory once instead of scanning the whole array per product. */
   const invByKey = {};
   const invByProduct = {};
