@@ -164,7 +164,7 @@ function PriceTiersEditor({ tiers, onChange }) {
           every branch and a per-store price does not move them. A branch that
           prices differently needs its tiers keyed manually until tiers get
           their own per-store override. */}
-      <p className="text-xs text-amber-400/90">
+      <p className="text-xs text-orange-700 dark:text-orange-300">
         Tiers apply at every store. A store's own price won't change them.
       </p>
 
@@ -242,8 +242,8 @@ function DeleteProductDialog({ open, product, preview, busy, onCancel, onConfirm
           )}
 
           {preview && hasHistory && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+            <div className="rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300 text-sm font-medium">
                 <AlertTriangle className="h-4 w-4" /> This product has stock history
               </div>
               <div className="text-xs text-muted-foreground space-y-0.5">
@@ -252,7 +252,7 @@ function DeleteProductDialog({ open, product, preview, busy, onCancel, onConfirm
                 {p.stock_count_items > 0 && <div>{p.stock_count_items} stock count entr{p.stock_count_items === 1 ? "y" : "ies"}</div>}
                 {p.bundle_links > 0 && <div>{p.bundle_links} bundle{p.bundle_links === 1 ? "" : "s"} will be unlinked</div>}
               </div>
-              <p className="text-xs text-amber-300/90 leading-relaxed">
+              <p className="text-xs text-orange-700 dark:text-orange-300 leading-relaxed">
                 Sales history and past receipts are not affected. However, Stock Value and
                 Inventory Analytics for earlier dates will change once these records are removed.
               </p>
@@ -393,8 +393,14 @@ function ProductForm({
     /* Group figures — these move every branch. */
     price: product?._base_price != null ? product._base_price : (product?.price || 0),
     cost_price: product?._base_cost != null ? product._base_cost : (product?.cost_price || 0),
-    stock_quantity: product?.stock_quantity || 0,
-    low_stock_threshold: product?.low_stock_threshold || 5,
+    /* Editing: show the chosen store's own figures. product.stock_quantity can be the
+       all-stores total, which then had to be corrected by hand (and saved) a second time. */
+    stock_quantity: product && initialStoreId && getStoreStock
+      ? (initialInv ? toNum(initialInv.stock_quantity) : 0)
+      : (product?.stock_quantity || 0),
+    low_stock_threshold: initialInv && initialInv.low_stock_threshold != null
+      ? toNum(initialInv.low_stock_threshold)
+      : (product?.low_stock_threshold || 5),
     description: product?.description || "",
     product_type: product?.product_type || "",
     thc_percentage: product?.thc_percentage || "",
@@ -746,9 +752,9 @@ function ProductForm({
       </p>
 
       {product && storePriceSet && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 -mt-1">
-          <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-300/90">
+        <div className="flex items-start gap-2 rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 -mt-1">
+          <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-orange-700 dark:text-orange-300">
             <span className="font-medium">{storeLabel}</span> has its own price of {formatCurrency(toNum(form.store_price))} and
             will keep it. Changing the price above moves the other branches only.
           </p>
@@ -856,9 +862,9 @@ function ProductForm({
               : "Pick a store above — stock and price are held per store, not across all of them."}
           </p>
 
-          {form.store_id && storePriceSet && (
-            <p className="text-xs text-blue-300 font-medium">
-              {storeLabel} will ring up {formatCurrency(effectiveStorePrice)}.
+          {form.store_id && (
+            <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+              {storeLabel} will ring up {formatCurrency(effectiveStorePrice)}{storePriceSet ? "" : " (the all-stores price)"}.
             </p>
           )}
         </div>
