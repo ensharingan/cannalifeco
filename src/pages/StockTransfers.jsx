@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from '@/api/supabaseClient';
-import { Plus, Search, Trash2, Printer, ArrowRightLeft, AlertTriangle } from "lucide-react";
+import { Plus, Search, Trash2, Printer, ArrowRightLeft, AlertTriangle, ClipboardPaste } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCompany } from "../lib/CompanyContext";
+import { parsePasteList, buildIndex, matchItem } from "@/lib/pasteList";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyHeader = () => ({ from_store_id: "", to_store_id: "", transfer_date: today(), dispatched_by_name: "", driver_name: "", vehicle_reg: "", notes: "" });
@@ -32,6 +34,9 @@ export default function StockTransfers() {
   const [lines, setLines] = useState([]);
   const [prodSearch, setProdSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [notFound, setNotFound] = useState([]);
   const searchRef = useRef(null);
   const { role } = useCompany();
   const isMgr = ['owner', 'admin', 'manager', 'superadmin', 'head_office', 'supervisor'].includes(role);
@@ -82,6 +87,36 @@ export default function StockTransfers() {
     setProdSearch(""); searchRef.current?.focus();
   };
 
+  // Paste a "Name +qty" list (WhatsApp text): match to products in stock at the source store, fill the lines.
+  const importList = (text) => {
+    if (!header.from_store_id) return toast.error('Choose the source store first');
+    const { groups } = parsePasteList(text, []);
+    const items = groups.flatMap(g => g.items);
+    if (!items.length) return toast.error('No "name +qty" lines found');
+    const index = buildIndex(products);
+    const add = {}; const missing = [];
+    for (const it of items) {
+      const m = matchItem(it, index);
+      if (!m.product_id) { missing.push(`${it.name} +${it.qty}`); continue; }
+      const p = products.find(x => x.id === m.product_id);
+      const cur = add[m.product_id] || { product_id: p.id, product_name: p.name, sku: p.sku, quantity: 0, check: false };
+      cur.quantity += it.qty; cur.check = cur.check || m.conf !== 'good';
+      add[m.product_id] = cur;
+    }
+    setLines(ls => {
+      const next = [...ls];
+      for (const a of Object.values(add)) {
+        const i = next.findIndex(l => l.product_id === a.product_id);
+        if (i >= 0) next[i] = { ...next[i], quantity: Number(next[i].quantity) + a.quantity, check: next[i].check || a.check };
+        else next.push(a);
+      }
+      return next;
+    });
+    setNotFound(missing);
+    setPasteText(""); setShowPaste(false);
+    toast.success(`${Object.keys(add).length} products added` + (missing.length ? `, ${missing.length} not found` : ''));
+  };
+
   const printNote = async (n) => {
     const { data } = await supabase.from('stock_transfer_note_lines').select('*').eq('note_id', n.id).order('product_name');
     const w = window.open('', '_blank');
@@ -104,6 +139,9 @@ export default function StockTransfers() {
     if (!header.from_store_id || !header.to_store_id) return toast.error('Choose both stores');
     if (header.from_store_id === header.to_store_id) return toast.error('Source and destination must be different');
     if (lines.length === 0) return toast.error('Add at least one product');
+    if (lines.some(l => !(Number(l.quantity) > 0))) return toast.error('Every line needs a quantity above zero');
+    const over = lines.filter(l => Number(l.quantity) > (stock[l.product_id] || 0));
+    if (over.length) return toast.error(`More than available at ${stName[header.from_store_id]}: ${over.slice(0, 3).map(l => l.product_name).join(', ')}${over.length > 3 ? '...' : ''}. Lower the Send quantity.`);
     if (!window.confirm(`Dispatch stock from ${stName[header.from_store_id]} to ${stName[header.to_store_id]}? It leaves ${stName[header.from_store_id]} now and lands at ${stName[header.to_store_id]} when they confirm the count.`)) return;
     setSaving(true);
     const { data, error } = await supabase.rpc('transfer_create', {
@@ -162,7 +200,7 @@ export default function StockTransfers() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><ArrowRightLeft className="w-6 h-6" /> Stock Transfers</h1>
           <p className="text-sm text-muted-foreground">Dispatch stock to another store and print the delivery note. Stock only lands at the receiving store once they count it in.</p>
         </div>
-        <Button onClick={() => { setHeader(emptyHeader()); setLines([]); setProdSearch(""); setOpen(true); }}><Plus className="w-4 h-4 mr-1" /> New transfer</Button>
+        <Button onClick={() => { setHeader(emptyHeader()); setLines([]); setProdSearch(""); setNotFound([]); setShowPaste(false); setOpen(true); }}><Plus className="w-4 h-4 mr-1" /> New transfer</Button>
       </div>
       <div className="relative max-w-md"><Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
         <Input className="pl-9" placeholder="Search transfer no. or store" value={search} onChange={e => setSearch(e.target.value)} /></div>
@@ -209,12 +247,29 @@ export default function StockTransfers() {
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-3.5 text-muted-foreground" />
             <Input ref={searchRef} disabled={!header.from_store_id} className="pl-9 h-11" placeholder={header.from_store_id ? "Search product in stock at the source store" : "Choose the source store first"} value={prodSearch} onChange={e => setProdSearch(e.target.value)}
+              onPaste={e => { const t = e.clipboardData?.getData('text') || ''; if (/\n/.test(t.trim())) { e.preventDefault(); importList(t); } }}
               onKeyDown={e => { if (e.key === 'Enter' && matches.length === 1) { e.preventDefault(); addProduct(matches[0]); } }} />
             {matches.length > 0 && (
               <div className="absolute z-20 left-0 right-0 mt-1 bg-popover border rounded-md shadow-md max-h-64 overflow-y-auto">
                 {matches.map(p => <button key={p.id} type="button" onClick={() => addProduct(p)} className="w-full text-left px-3 py-2 hover:bg-muted flex justify-between gap-3 text-sm"><span>{p.name}</span><span className="text-muted-foreground">{stock[p.id]} in stock</span></button>)}
               </div>)}
           </div>
+          <div className="flex items-center justify-between gap-2 -mt-1">
+            <Button type="button" variant="outline" size="sm" disabled={!header.from_store_id} onClick={() => setShowPaste(v => !v)}><ClipboardPaste className="w-4 h-4 mr-1" /> Paste list</Button>
+            <span className="text-xs text-muted-foreground">Or paste a whole list straight into the search box.</span>
+          </div>
+          {showPaste && (
+            <div className="space-y-2">
+              <Textarea rows={6} className="font-mono text-xs" placeholder={"BAGS :\n3g\nGalactic +3\nPermanent marker +6"} value={pasteText} onChange={e => setPasteText(e.target.value)} />
+              <div className="flex justify-end"><Button size="sm" onClick={() => importList(pasteText)}>Add to transfer</Button></div>
+            </div>
+          )}
+          {notFound.length > 0 && (
+            <div className="rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 text-xs text-orange-700 dark:text-orange-300">
+              <div className="font-medium mb-1">Not found in stock at {stName[header.from_store_id]} (add by search, or the store has none):</div>
+              {notFound.join(' · ')}
+            </div>
+          )}
           <div className="border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left"><tr><th className="p-2">Product</th><th className="p-2 w-24">Available</th><th className="p-2 w-28">Send</th><th className="p-2 w-10"></th></tr></thead>
@@ -222,9 +277,9 @@ export default function StockTransfers() {
                 {lines.length === 0 ? <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">Search to add products</td></tr>
                   : lines.map((l, i) => (
                     <tr key={l.product_id} className="border-t">
-                      <td className="p-2"><div className="font-medium">{l.product_name}</div><div className="text-xs text-muted-foreground">{l.sku}</div></td>
+                      <td className="p-2"><div className="font-medium">{l.product_name}</div><div className="text-xs text-muted-foreground">{l.sku}</div>{l.check && <div className="text-xs text-orange-600 dark:text-orange-400">Check this match</div>}</td>
                       <td className="p-2">{stock[l.product_id] ?? 0}</td>
-                      <td className="p-2"><Input type="number" min="0" step="any" className={Number(l.quantity) > (stock[l.product_id] || 0) ? "border-amber-500" : ""} value={l.quantity} onChange={e => setLines(ls => ls.map((x, idx) => idx === i ? { ...x, quantity: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input type="number" min="0" step="any" className={Number(l.quantity) > (stock[l.product_id] || 0) ? "border-orange-500" : ""} value={l.quantity} onChange={e => setLines(ls => ls.map((x, idx) => idx === i ? { ...x, quantity: e.target.value } : x))} /></td>
                       <td className="p-2"><Button size="icon" variant="ghost" onClick={() => setLines(ls => ls.filter((_, x) => x !== i))}><Trash2 className="w-4 h-4 text-red-500" /></Button></td>
                     </tr>))}
               </tbody>
