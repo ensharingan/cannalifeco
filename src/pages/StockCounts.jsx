@@ -115,14 +115,13 @@ export default function StockCounts() {
           setForm(function (f) { return { ...f, store_id: activeStoreId }; });
         }
 
-        // Product group (the shops' drawer groups) wins over the broad category when a product has one.
-        var cRes = await supabase.from("products").select("category, product_group")
+        // Clean product categories (flower, pre_rolls, edibles, ...), not the free-text product groups.
+        var cRes = await supabase.from("products").select("category")
           .eq("company_id", prof.company_id).eq("is_active", true);
         if (!cancelled) {
           var seen = {};
           (cRes.data || []).forEach(function (c) {
-            var label = (c.product_group && c.product_group.trim()) || c.category;
-            if (label) seen[label] = true;
+            if (c.category) seen[c.category] = true;
           });
           setCategories(Object.keys(seen).sort());
         }
@@ -329,7 +328,7 @@ export default function StockCounts() {
                           on ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/60")}>
                         <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
                           on ? "border-primary bg-primary text-primary-foreground" : "border-border")}>{on ? "\u2713" : ""}</span>
-                        {c}
+                        {c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, " ")}
                       </button>
                     );
                   })}
