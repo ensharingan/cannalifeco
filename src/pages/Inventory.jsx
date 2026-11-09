@@ -1273,31 +1273,6 @@ export default function Inventory() {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border border-border p-5">
-        <h3 className="text-sm font-semibold mb-4">Recent Movements</h3>
-        <div className="space-y-2">
-          {movements.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No movements yet</p>
-          ) : (
-            movements.map(function (m) {
-              return (
-                <div key={m.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{m.product_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(m.created_at).toLocaleDateString()} · {m.notes || m.movement_type}
-                    </p>
-                  </div>
-                  <span className={cn("text-sm font-semibold", m.quantity_change > 0 ? "text-green-500" : "text-red-500")}>
-                    {m.quantity_change > 0 ? "+" : ""}{m.quantity_change}
-                  </span>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
       {/* Store price dialog — never opens in add-only mode (openPriceDialog
           bails out before setting priceProduct), so nothing extra needed here. */}
       <Dialog open={!!priceProduct} onOpenChange={function (open) { if (!open) closePriceDialog(); }}>
