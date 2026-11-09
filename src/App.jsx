@@ -57,6 +57,7 @@ import PublicSign from './pages/PublicSign';
 import TillCashOuts from './pages/TillCashOuts';
 import StockCounts from './pages/StockCounts';
 import StockMovements from './pages/StockMovements';
+import MergeDuplicates from './pages/MergeDuplicates';
 import GoodsReceiving from './pages/GoodsReceiving';
 import StockTransfers from './pages/StockTransfers';
 import StockRequests from './pages/StockRequests';
@@ -155,6 +156,7 @@ const AuthenticatedApp = () => {
         <Route path="/stock-transfers" element={<StockTransfers />} />
         <Route path="/stock-requests" element={<StockRequests />} />
         <Route path="/stock-movements" element={<StockMovements />} />
+        <Route path="/merge-duplicates" element={<MergeDuplicates />} />
         <Route path="/stock-counts" element={<StockCounts />} />
         <Route path="/stock-counts/:id" element={<StockCountSession />} />
         <Route path="/print-labels" element={<PrintLabels />} />
