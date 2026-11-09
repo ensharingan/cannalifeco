@@ -1,5 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from '@/lib/AuthContext';
+import SupportAssistant from '@/components/SupportAssistant';
+import BRAND from '@/lib/brand';
 import { useCompany } from '@/lib/CompanyContext';
 import { usePosSettings } from '@/lib/usePosSettings';
 import { useState, useEffect } from "react";
@@ -267,6 +269,7 @@ export default function Layout() {
           {/* Canna Life Co is light-only for this client — dark mode toggle removed.
               The actual lock (default + ignoring any stored 'dark' preference)
               lives in ThemeContext / the first-paint script in index.html. */}
+          <SupportAssistant role={profile?.role} position="inline" brandName={BRAND.name} showCheck={false} />
           <button
             onClick={() => navigate("/help")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
