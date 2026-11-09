@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { fetchAll } from "@/lib/fetchAll";
 import { useCompany } from "../lib/CompanyContext";
-import { Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Search, Download, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +26,9 @@ function fmtQty(n) {
 
 export default function StockMovements() {
   var { companyId } = useCompany();
+  var [sp, setSp] = useSearchParams();
+  var productId = sp.get("product") || "";
+  var [prod, setProd] = useState(null);       // { name, perStore: [{store, now, in, out}] , totals }
   var [rows, setRows] = useState([]);
   var [total, setTotal] = useState(0);
   var [page, setPage] = useState(0);
@@ -54,13 +58,14 @@ export default function StockMovements() {
     var qb = supabase.from("inventory_movements")
       .select("*", withCount ? { count: "exact" } : undefined)
       .eq("company_id", companyId);
+    if (productId) qb = qb.eq("product_id", productId);
     if (storeId !== "all") qb = qb.eq("store_id", storeId);
     if (type !== "all") qb = qb.eq("movement_type", type);
     if (q) qb = qb.ilike("product_name", "%" + q.replace(/[%,]/g, " ") + "%");
     if (from) qb = qb.gte("created_at", from + "T00:00:00");
     if (to) qb = qb.lte("created_at", to + "T23:59:59");
     return qb.order("created_at", { ascending: false });
-  }, [companyId, storeId, type, q, from, to]);
+  }, [companyId, productId, storeId, type, q, from, to]);
 
   useEffect(function () {
     if (!companyId) return;
@@ -84,6 +89,38 @@ export default function StockMovements() {
     });
     return function () { cancelled = true; };
   }, [companyId, build, page]);
+
+  // Item view: stock now per store + everything that moved, per store.
+  useEffect(function () {
+    if (!productId || !companyId) { setProd(null); return; }
+    var cancelled = false;
+    (async function () {
+      var pr = await supabase.from("products").select("name").eq("id", productId).maybeSingle();
+      var inv = await supabase.from("store_inventory").select("store_id, stock_quantity").eq("product_id", productId);
+      var mv = await fetchAll(function () {
+        return supabase.from("inventory_movements").select("store_id, movement_type, quantity_change")
+          .eq("company_id", companyId).eq("product_id", productId).order("created_at", { ascending: false });
+      });
+      if (cancelled) return;
+      var per = {};
+      (inv.data || []).forEach(function (r) { per[r.store_id] = { now: Number(r.stock_quantity || 0), sold: 0, tin: 0, tout: 0, adj: 0, count: 0, recv: 0 }; });
+      mv.forEach(function (m) {
+        var o = per[m.store_id] || (per[m.store_id] = { now: 0, sold: 0, tin: 0, tout: 0, adj: 0, count: 0, recv: 0 });
+        var c = Number(m.quantity_change || 0), t = m.movement_type;
+        if (t === "sale") o.sold += c;
+        else if (t === "transfer_in") o.tin += c;
+        else if (t === "transfer_out" || t === "transfer_return") o.tout += c;
+        else if (t === "stock_take" || t === "stock_take_reversal") o.count += c;
+        else if (t === "restock" || t === "in") o.recv += c;
+        else o.adj += c;
+      });
+      setProd({ name: (pr.data || {}).name || "", per: per, n: mv.length });
+    })();
+    return function () { cancelled = true; };
+  }, [productId, companyId]);
+
+  function openProduct(id) { var n = new URLSearchParams(sp); n.set("product", id); setSp(n); setPage(0); }
+  function clearProduct() { var n = new URLSearchParams(sp); n.delete("product"); setSp(n); setPage(0); }
 
   var storeName = function (id) {
     var s = stores.find(function (x) { return x.id === id; });
@@ -118,6 +155,44 @@ export default function StockMovements() {
         </div>
         <Button variant="outline" onClick={exportCSV} className="gap-2"><Download className="w-4 h-4" /> Export CSV</Button>
       </div>
+
+      {productId && (
+        <div className="bg-card rounded-xl border border-primary/40 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-xs text-muted-foreground">Item history</div>
+              <div className="text-lg font-bold">{prod ? prod.name : "Loading…"}</div>
+              {prod && <div className="text-xs text-muted-foreground">{prod.n} movements recorded</div>}
+            </div>
+            <Button variant="outline" size="sm" onClick={clearProduct} className="gap-1"><X className="w-4 h-4" /> Back to all items</Button>
+          </div>
+          {prod && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead><tr className="text-muted-foreground text-left border-b border-border">
+                  <th className="py-1.5 pr-3">Store</th><th className="pr-3 text-right">In stock now</th><th className="pr-3 text-right">Received</th>
+                  <th className="pr-3 text-right">Transfer in</th><th className="pr-3 text-right">Transfer out</th><th className="pr-3 text-right">Sold</th>
+                  <th className="pr-3 text-right">Counts</th><th className="text-right">Adjustments</th></tr></thead>
+                <tbody>
+                  {Object.keys(prod.per).sort(function (a, b) { return storeName(a).localeCompare(storeName(b)); }).map(function (sid) {
+                    var o = prod.per[sid];
+                    var f = function (v) { return v ? (v > 0 ? "+" : "") + fmtQty(v) : "–"; };
+                    return (
+                      <tr key={sid} className="border-b border-border/40 last:border-0">
+                        <td className="py-1.5 pr-3 font-medium">{storeName(sid) || "Unknown store"}</td>
+                        <td className="pr-3 text-right font-semibold">{fmtQty(o.now)}</td>
+                        <td className="pr-3 text-right">{f(o.recv)}</td><td className="pr-3 text-right">{f(o.tin)}</td>
+                        <td className="pr-3 text-right">{f(o.tout)}</td><td className="pr-3 text-right">{f(o.sold)}</td>
+                        <td className="pr-3 text-right">{f(o.count)}</td><td className="text-right">{f(o.adj)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap items-center">
         <div className="relative">
@@ -163,11 +238,14 @@ export default function StockMovements() {
                   <tr key={m.id} className="border-b border-border/50 last:border-0">
                     <td className="p-3 whitespace-nowrap text-xs">{new Date(m.created_at).toLocaleString()}</td>
                     <td className="p-3 text-xs">{storeName(m.store_id) || "–"}</td>
-                    <td className="p-3 font-medium">{m.product_name}</td>
+                    <td className="p-3 font-medium">
+                      <button type="button" className="text-left hover:underline hover:text-primary" title="Show this item's full history"
+                        onClick={function () { openProduct(m.product_id); }}>{m.product_name}</button>
+                    </td>
                     <td className="p-3 text-xs">{typeLabel(m.movement_type)}</td>
                     <td className={cn("p-3 text-right font-semibold", ch > 0 ? "text-green-500" : ch < 0 ? "text-red-500" : "")}>{ch > 0 ? "+" : ""}{fmtQty(ch)}</td>
                     <td className="p-3 text-right text-xs text-muted-foreground whitespace-nowrap">{fmtQty(m.previous_qty)} → {fmtQty(m.new_qty)}</td>
-                    <td className="p-3 text-xs text-muted-foreground max-w-[260px] truncate" title={(m.reason || "") + " " + (m.notes || "")}>{[m.reason, m.notes].filter(Boolean).join(" · ")}</td>
+                    <td className="p-3 text-xs text-muted-foreground max-w-[260px] truncate" title={(m.reason || "") + " " + (m.notes || "")}>{[(m.from_store_id || m.to_store_id) ? (storeName(m.from_store_id) || "?") + " → " + (storeName(m.to_store_id) || "?") : "", m.reason, m.notes].filter(Boolean).join(" · ")}</td>
                     <td className="p-3 text-xs">{users[m.created_by] || (m.created_by ? "" : "System")}</td>
                   </tr>
                 );
