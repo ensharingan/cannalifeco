@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useCompany } from "../lib/CompanyContext";
 import { cn } from "@/lib/utils";
+import { groupOf } from "../lib/posGroups";
 import { ClipboardCheck, Plus, Store as StoreIcon, EyeOff, ChevronRight } from "lucide-react";
 
 var MANAGER_ROLES = ["owner", "admin", "manager", "superadmin"];
@@ -47,6 +48,8 @@ export default function StockCounts() {
   var [stores, setStores] = useState([]);
   var [allCounts, setCounts] = useState([]);
   var [categories, setCategories] = useState([]);
+  var [prods, setProds] = useState([]);        // { id, category, group } for tiles and type narrowing
+  var [typeSel, setTypeSel] = useState({});    // category -> types still ticked (missing = all types)
   var [tab, setTab] = useState("due");
   var [loading, setLoading] = useState(true);
 
@@ -116,7 +119,7 @@ export default function StockCounts() {
         }
 
         // Clean product categories (flower, pre_rolls, edibles, ...), not the free-text product groups.
-        var cRes = await supabase.from("products").select("category")
+        var cRes = await supabase.from("products").select("id, category, product_group")
           .eq("company_id", prof.company_id).eq("is_active", true);
         if (!cancelled) {
           var seen = {};
@@ -124,6 +127,9 @@ export default function StockCounts() {
             if (c.category) seen[c.category] = true;
           });
           setCategories(Object.keys(seen).sort());
+          setProds((cRes.data || []).filter(function (c) { return c.category; }).map(function (c) {
+            return { id: c.id, category: c.category, group: groupOf(c) };
+          }));
         }
 
         await loadCounts(prof);
@@ -175,6 +181,15 @@ export default function StockCounts() {
         p_name: form.name || null,
         p_scope: form.scope,
         p_categories: form.scope === "category" && form.categories.length ? form.categories : null,
+        p_product_ids: (function () {
+          if (form.scope !== "category") return null;
+          var narrowed = form.categories.some(function (c) { return typeSel[c]; });
+          if (!narrowed) return null;
+          return prods.filter(function (p) {
+            if (form.categories.indexOf(p.category) === -1) return false;
+            return !typeSel[p.category] || typeSel[p.category].indexOf(p.group) !== -1;
+          }).map(function (p) { return p.id; });
+        })(),
         p_blind: isManager ? form.blind : true,
       });
       if (res.error) throw res.error;
@@ -275,7 +290,7 @@ export default function StockCounts() {
       </div>
 
       <Dialog open={showNew} onOpenChange={function (open) { if (!open) setShowNew(false); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-3xl w-[95vw] max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="w-5 h-5 text-primary" /> Start a count
@@ -316,24 +331,63 @@ export default function StockCounts() {
                 <label className="text-xs font-medium text-muted-foreground">
                   Categories{form.categories.length ? " (" + form.categories.length + " selected)" : ""}
                 </label>
-                <div className="max-h-44 overflow-y-auto rounded-xl border border-border p-1.5 space-y-0.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {categories.map(function (c) {
                     var on = form.categories.indexOf(c) !== -1;
+                    var n = prods.filter(function (p) { return p.category === c; }).length;
                     return (
                       <button key={c} type="button"
                         onClick={function () {
                           setForm({ ...form, categories: on ? form.categories.filter(function (x) { return x !== c; }) : form.categories.concat([c]) });
                         }}
-                        className={cn("flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-                          on ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/60")}>
-                        <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
-                          on ? "border-primary bg-primary text-primary-foreground" : "border-border")}>{on ? "\u2713" : ""}</span>
-                        {c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, " ")}
+                        className={cn("relative flex flex-col items-center justify-center gap-0.5 rounded-xl border px-2 py-4 text-center text-sm transition-colors",
+                          on ? "border-primary bg-primary/10 text-primary font-semibold" : "border-border hover:bg-muted/60")}>
+                        {on && <span className="absolute right-2 top-1.5 text-xs">{"\u2713"}</span>}
+                        <span>{c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, " ")}</span>
+                        <span className="text-[11px] font-normal text-muted-foreground">{n} item{n === 1 ? "" : "s"}</span>
                       </button>
                     );
                   })}
                   {!categories.length && <p className="p-2 text-xs text-muted-foreground">No categories found</p>}
                 </div>
+
+                {form.categories.map(function (c) {
+                  var groups = {};
+                  prods.forEach(function (p) { if (p.category === c) groups[p.group] = (groups[p.group] || 0) + 1; });
+                  var names = Object.keys(groups).sort(function (a, b) {
+                    if (a === "Other") return 1; if (b === "Other") return -1; return groups[b] - groups[a];
+                  });
+                  if (names.length < 2) return null;
+                  var sel = typeSel[c] || names;
+                  return (
+                    <div key={c} className="rounded-xl border border-border p-3 space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground">
+                        Types in {c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, " ")}
+                        {typeSel[c] ? <button type="button" className="ml-2 text-primary underline"
+                          onClick={function () { var n = { ...typeSel }; delete n[c]; setTypeSel(n); }}>all types</button> : null}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {names.map(function (g) {
+                          var on = sel.indexOf(g) !== -1;
+                          return (
+                            <button key={g} type="button"
+                              onClick={function () {
+                                var next = on ? sel.filter(function (x) { return x !== g; }) : sel.concat([g]);
+                                if (!next.length) return;
+                                var n2 = { ...typeSel };
+                                if (next.length === names.length) delete n2[c]; else n2[c] = next;
+                                setTypeSel(n2);
+                              }}
+                              className={cn("rounded-full border px-3.5 py-1.5 text-xs transition-colors",
+                                on ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
+                              {g} ({groups[g]})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
