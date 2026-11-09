@@ -11,7 +11,7 @@ export function Tiles({ items, onPick }) {
             className="flex flex-col items-center justify-center gap-1 p-5 min-h-[120px] rounded-xl border border-border bg-card hover:shadow-md hover:border-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all text-center">
             {it.icon ? <span className="text-3xl">{it.icon}</span> : null}
             <span className="font-semibold text-sm">{it.label}</span>
-            <span className="text-xs text-muted-foreground">{it.count} item{it.count === 1 ? "" : "s"}</span>
+            <span className="text-xs text-muted-foreground">{it.sub || (it.count + " item" + (it.count === 1 ? "" : "s"))}</span>
           </button>
         );
       })}

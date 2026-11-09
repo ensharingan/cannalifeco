@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "../lib/currency";
+import { fetchAll } from "@/lib/fetchAll";
+import { Tiles, Crumbs } from "../components/pos/CategoryBrowser";
+import { groupOf } from "../lib/posGroups";
 import {
   ArrowLeft, Search, ScanLine, Pause, Play, CheckCircle, Check,
   Trash2, EyeOff, AlertTriangle, History, ClipboardCheck, Download, Share2, RotateCcw, ChevronDown, ChevronRight,
@@ -26,6 +29,9 @@ export default function StockCountSession() {
   var [search, setSearch] = useState("");
   var [category, setCategory] = useState("");
   var [catList, setCatList] = useState([]);
+  var [group, setGroup] = useState(null);       // null = not chosen, "__all__" = whole category
+  var [stage, setStage] = useState("cats");     // cats -> groups -> list
+  var [stats, setStats] = useState([]);         // [{ category, group, counted }] for every item on the count
   var [collapsed, setCollapsed] = useState({});
   var [code, setCode] = useState("");
   var [qty, setQty] = useState("1");
@@ -96,17 +102,55 @@ export default function StockCountSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, filter, category]);
 
-  // Category chips: the distinct categories on this count, in alphabetical order
+  // Tile data: every item on the count with its category, tidy type and whether it is counted.
   useEffect(function () {
     if (!id) return;
-    supabase.from("stock_count_items").select("category").eq("count_id", id).limit(5000)
-      .then(function (res) {
-        if (res.error || !res.data) return;
+    (async function () {
+      try {
+        var its = await fetchAll(function () {
+          return supabase.from("stock_count_items").select("product_id, category, counted_qty").eq("count_id", id);
+        });
+        var ids = its.map(function (r) { return r.product_id; });
+        var gmap = {};
+        for (var o = 0; o < ids.length; o += 200) {
+          var pr = await supabase.from("products").select("id, product_group, category").in("id", ids.slice(o, o + 200));
+          (pr.data || []).forEach(function (x) { gmap[x.id] = groupOf(x); });
+        }
         var seen = {};
-        res.data.forEach(function (r) { seen[r.category || "Uncategorised"] = true; });
+        its.forEach(function (r) { seen[r.category || "Uncategorised"] = true; });
         setCatList(Object.keys(seen).sort());
-      });
-  }, [id, loading]);
+        setStats(its.map(function (r) {
+          return { product_id: r.product_id, category: r.category || "Uncategorised", group: gmap[r.product_id] || "Other",
+                   counted: r.counted_qty !== null && r.counted_qty !== undefined };
+        }));
+      } catch (e) { /* tiles are optional; the list still works */ }
+    })();
+  }, [id, loading, summary && summary.counted]);
+
+  var groupMap = {};
+  stats.forEach(function (r) { groupMap[r.product_id] = r.group; });
+
+  function tilesFor(rows, keyOf) {
+    var by = {};
+    rows.forEach(function (r) {
+      var k = keyOf(r); var o = by[k] || (by[k] = { n: 0, done: 0 });
+      o.n++; if (r.counted) o.done++;
+    });
+    return Object.keys(by).sort(function (a, b) {
+      if (a === "Other" || a === "Uncategorised") return 1;
+      if (b === "Other" || b === "Uncategorised") return -1;
+      return by[b].n - by[a].n || a.localeCompare(b);
+    }).map(function (k) { return { key: k, label: k, count: by[k].n, sub: by[k].done + " / " + by[k].n + " counted" }; });
+  }
+  var catTiles = tilesFor(stats, function (r) { return r.category; });
+  var groupTiles = category || (stage === "groups" ? true : false)
+    ? tilesFor(stats.filter(function (r) { return r.category === (category || "Uncategorised"); }), function (r) { return r.group; })
+    : [];
+
+  // Tiles only while browsing the plain lists; variance views and searching go straight to the list.
+  var browsing = ["all", "counted", "uncounted"].indexOf(filter) !== -1 && !search.trim() && catList.length > 1;
+  var showTiles = browsing && stage !== "list";
+  var showList = !showTiles;
 
   async function submitCount() {
     var value = code.trim();
@@ -736,22 +780,39 @@ export default function StockCountSession() {
               onChange={function (e) { setSearch(e.target.value); }} />
           </div>
 
-          {catList.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
-              {[["", "All categories"]].concat(catList.map(function (c) { return [c === "Uncategorised" ? "" : c, c]; })).map(function (c, idx) {
-                if (idx > 0 && c[1] === "Uncategorised") return null;
-                var on = category === c[0];
-                return (
-                  <button key={c[1]} onClick={function () { setCategory(c[0]); }}
-                    className={cn("shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                      on ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
-                    {c[1]}
-                  </button>
-                );
-              })}
+          {browsing && stage !== "cats" && (
+            <div className="mb-3">
+              <Crumbs
+                catLabel={category || (stage !== "cats" ? "All items" : "")}
+                groupLabel={group && group !== "__all__" ? group : ""}
+                onAll={function () { setCategory(""); setGroup(null); setStage("cats"); }}
+                onCat={function () { setGroup(null); setStage(category ? "groups" : "cats"); }}
+              />
             </div>
           )}
 
+          {showTiles && stage === "cats" && (
+            <div className="mb-4">
+              <Tiles
+                items={[{ key: "__all__", label: "All items", count: stats.length, sub: stats.filter(function (r) { return r.counted; }).length + " / " + stats.length + " counted" }].concat(catTiles)}
+                onPick={function (k) {
+                  if (k === "__all__") { setCategory(""); setGroup("__all__"); setStage("list"); return; }
+                  setCategory(k === "Uncategorised" ? "" : k); setGroup(null);
+                  var gs = tilesFor(stats.filter(function (r) { return r.category === k; }), function (r) { return r.group; });
+                  if (gs.length <= 1) { setGroup("__all__"); setStage("list"); } else setStage("groups");
+                }} />
+            </div>
+          )}
+
+          {showTiles && stage === "groups" && (
+            <div className="mb-4">
+              <Tiles
+                items={[{ key: "__all__", label: "All " + (category || "items"), count: groupTiles.reduce(function (n, g) { return n + g.count; }, 0) }].concat(groupTiles)}
+                onPick={function (k) { setGroup(k); setStage("list"); }} />
+            </div>
+          )}
+
+          {showList && (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className={cn("grid gap-3 px-3 py-2.5 border-b border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground",
               masked ? "grid-cols-[24px_1fr_auto]" : "grid-cols-[24px_1fr_auto_auto]")}>
@@ -765,12 +826,14 @@ export default function StockCountSession() {
               <div className="py-12 text-center text-sm text-muted-foreground">Nothing to show here.</div>
             )}
 
-            {items.map(function (r, i) {
+            {items.filter(function (r) {
+              return !(browsing && group && group !== "__all__") || groupMap[r.product_id] === group;
+            }).map(function (r, i, arr) {
               var grouped = !["variance","over","short"].includes(filter);
               var catKey = r.category || "Uncategorised";
-              var showHead = grouped && (i === 0 || (items[i - 1].category || "") !== (r.category || ""));
+              var showHead = grouped && (i === 0 || (arr[i - 1].category || "") !== (r.category || ""));
               var isCollapsed = grouped && !!collapsed[catKey];
-              var inCat = showHead ? items.filter(function (x) { return (x.category || "") === (r.category || ""); }) : null;
+              var inCat = showHead ? arr.filter(function (x) { return (x.category || "") === (r.category || ""); }) : null;
               var doneInCat = inCat ? inCat.filter(function (x) { return x.counted_qty !== null && x.counted_qty !== undefined; }).length : 0;
               var diff = r.variance === null || r.variance === undefined ? null : Number(r.variance);
               var isCounted = r.counted_qty !== null && r.counted_qty !== undefined;
@@ -827,6 +890,7 @@ export default function StockCountSession() {
               );
             })}
           </div>
+          )}
         </div>
 
         <aside className={cn("w-72 shrink-0", showRecent ? "block" : "hidden", "lg:block")}>
