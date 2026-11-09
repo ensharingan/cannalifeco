@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { groupOf } from "../../lib/posGroups";
 import { Package, Scale } from "lucide-react";
 import { formatCurrency } from "../../lib/currency";
 const categoryIcons = {
@@ -7,13 +8,14 @@ const categoryIcons = {
   topicals: "✨", hash_slab: "🔥", vape: "💨", tincture: "💧",
   gummies: "🍬", bundle: "🎁", other: "📦",
 };
-export default function ProductGrid({ products, onSelect, searchTerm, selectedCategory, allowNegative }) {
+export default function ProductGrid({ products, onSelect, searchTerm, selectedCategory, selectedGroup, allowNegative }) {
   const filtered = products.filter(function (p) {
     if (p.is_active === false) return false;
     if (selectedCategory) {
       var cat = (p.category || "").toLowerCase().replace(/-/g, "_").replace(/ /g, "_");
       if (cat !== selectedCategory) return false;
     }
+    if (selectedGroup && selectedGroup !== "__all__" && groupOf(p) !== selectedGroup) return false;
     if (searchTerm) {
       // Match on name, SKU or barcode. Scanners type the code straight into
       // the search box, so a name-only match hid every product on a scan.

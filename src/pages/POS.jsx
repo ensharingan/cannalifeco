@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { formatCurrency } from "../lib/currency";
 import ProductGrid from "../components/pos/ProductGrid";
+import { Tiles, Crumbs } from "../components/pos/CategoryBrowser";
+import { groupsIn } from "../lib/posGroups";
 import CartPanel, { lineDiscountAmount, lineTotal } from "../components/pos/CartPanel";
 import { useCompany } from "../lib/CompanyContext";
 import { cn } from "@/lib/utils";
@@ -285,6 +287,7 @@ export default function POS() {
   var [showCustomSale, setShowCustomSale] = useState(false);
   var [customSale, setCustomSale] = useState({ name: "", price: "", qty: "1", cost: "" });
   var [selectedCategory, setSelectedCategory] = useState("");
+  var [selectedGroup, setSelectedGroup] = useState(null); // null = not chosen yet, "__all__" = whole category
   var [selectedPromo, setSelectedPromo] = useState(null);
   var [selectedMember, setSelectedMember] = useState(null);
   // Member pre-orders (placed via the member portal Shop tab). memberPreorders
@@ -653,6 +656,30 @@ export default function POS() {
     for (var j = 0; j < keys.length; j++) result.push({ key: keys[j], label: prettyLabel(keys[j]) });
     return result;
   }, [products]);
+
+  useEffect(function () { setSelectedGroup(null); }, [selectedCategory]);
+
+  var catTiles = useMemo(function () {
+    var counts = {};
+    products.forEach(function (p) {
+      if (p.is_active === false) return;
+      var k = normalizeCat(p.category);
+      if (k) counts[k] = (counts[k] || 0) + 1;
+    });
+    return Object.keys(counts).sort().map(function (k) {
+      return { key: k, label: prettyLabel(k), icon: CATEGORY_ICONS[k] || "📦", count: counts[k] };
+    });
+  }, [products]);
+
+  var groupTiles = useMemo(function () {
+    if (!selectedCategory) return [];
+    return groupsIn(products, selectedCategory).map(function (g) { return { key: g.key, label: g.key, count: g.count }; });
+  }, [products, selectedCategory]);
+
+  useEffect(function () {
+    // a category with a single type has nothing to choose, go straight to the menu
+    if (selectedCategory && selectedGroup === null && groupTiles.length <= 1) setSelectedGroup("__all__");
+  }, [selectedCategory, selectedGroup, groupTiles]);
 
   useEffect(function () {
     if (!showMemberDialog && !showCustomerGate) return;
@@ -2137,18 +2164,13 @@ export default function POS() {
               );
             })()}
 
-            {!gridIsEmpty && !storeMismatch && (
-              <div className="flex flex-wrap gap-2 pb-1">
-                {categories.map(function (cat) {
-                  return (
-                    <button key={cat.key} onClick={function () { setSelectedCategory(cat.key); }}
-                      className={"px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all " +
-                        (selectedCategory === cat.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80")}>
-                      {cat.label}
-                    </button>
-                  );
-                })}
-              </div>
+            {!gridIsEmpty && !storeMismatch && selectedCategory && !searchTerm.trim() && (
+              <Crumbs
+                catLabel={prettyLabel(selectedCategory)}
+                groupLabel={selectedGroup && selectedGroup !== "__all__" ? selectedGroup : ""}
+                onAll={function () { setSelectedCategory(""); }}
+                onCat={function () { setSelectedGroup(null); }}
+              />
             )}
           </div>
 
@@ -2207,6 +2229,16 @@ export default function POS() {
                   {reloading ? "Loading..." : "Reload products"}
                 </Button>
               </div>
+            ) : (!searchTerm.trim() && !selectedPromo && (!selectedCategory || selectedGroup === null)) ? (
+              !selectedCategory ? (
+                <Tiles items={catTiles} onPick={function (k) { setSelectedCategory(k); }} />
+              ) : (
+                <div className="space-y-3">
+                  <Tiles items={[{ key: "__all__", label: "All " + prettyLabel(selectedCategory), icon: CATEGORY_ICONS[selectedCategory] || "📦",
+                                   count: groupTiles.reduce(function (n, g) { return n + g.count; }, 0) }].concat(groupTiles)}
+                         onPick={function (k) { setSelectedGroup(k); }} />
+                </div>
+              )
             ) : (
               <ProductGrid
                 products={(function () {
@@ -2218,6 +2250,7 @@ export default function POS() {
                 onSelect={handleProductSelect}
                 searchTerm={searchTerm}
                 selectedCategory={selectedCategory}
+                selectedGroup={selectedGroup}
                 allowNegative={allowNegative}
               />
             )}
