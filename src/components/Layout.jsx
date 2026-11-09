@@ -49,7 +49,7 @@ const allNavItems = [
   { group: 'stock',  path: "/products",            label: "Products",            icon: Package,         minRole: 'manager' },
   { group: 'stock',  path: "/inventory",           label: "Inventory",           icon: Warehouse,       minRole: 'manager' },
   { group: 'stock',  path: "/stock-movements",    label: "Stock Movements",     icon: ArrowRightLeft,  minRole: 'manager', sub: true },
-  { group: 'stock',  path: "/merge-duplicates",    label: "Merge Duplicates",    icon: ArrowRightLeft,  minRole: 'owner',   sub: true },
+  { group: 'stock',  path: "/merge-duplicates",    label: "Merge Duplicates",    icon: ArrowRightLeft,  minRole: 'manager',   sub: true },
   { group: 'stock',  path: "/inventory-analytics", label: "Inventory Analytics", icon: TrendingUp,      minRole: 'manager', sub: true },
   { group: 'stock',  path: "/stock-value-report",  label: "Stock Value Report",  icon: PackageSearch,   minRole: 'manager', sub: true },
   { group: 'stock',  path: "/goods-receiving",     label: "Goods Received (GRV)", icon: Truck,         minRole: 'cashier' },

@@ -13,8 +13,11 @@ function n(v) { return Math.round(Number(v || 0) * 1000) / 1000; }
 // numbers, press Merge. Stock moves from the product being removed into the one
 // kept (default: whichever holds the most stock). Owner/admin only (enforced in the DB).
 export default function MergeDuplicates() {
-  var { companyId, role } = useCompany();
-  var allowed = ["owner", "admin", "superadmin"].indexOf(role) !== -1;
+  var { companyId } = useCompany();
+  var [allowed, setAllowed] = useState(null);
+  useEffect(function () {
+    supabase.rpc("merge_tool_allowed").then(function (r) { setAllowed(!r.error && r.data === true); });
+  }, []);
   var [stores, setStores] = useState([]);
   var [storeId, setStoreId] = useState("");
   var [scope, setScope] = useState("store"); // store | all
@@ -74,7 +77,8 @@ export default function MergeDuplicates() {
     load();
   }
 
-  if (!allowed) return <div className="p-6 text-sm text-muted-foreground">Owner or admin only.</div>;
+  if (allowed === null) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  if (!allowed) return <div className="p-6 text-sm text-muted-foreground">You don't have access to this tool.</div>;
 
   return (
     <div className="p-4 lg:p-6 space-y-5 animate-fade-in">
