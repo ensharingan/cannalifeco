@@ -115,7 +115,11 @@ export default function GoodsReceiving() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, vatReg, productById]);
 
+  // GRV = real supplier deliveries only. Stock-room receipts and found-on-count
+  // movements are shop movements and live under Stock Transfers (open drafts stay visible so they can be finished).
+  const isShopMovement = (g) => g.source === 'count_found' || !!supplierById[g.supplier_id]?.is_internal;
   const filtered = grns.filter(g => {
+    if (isShopMovement(g) && g.status !== 'draft') return false;
     if (statusFilter !== 'all' && g.status !== statusFilter) return false;
     if (!search) return true;
     const q = search.toLowerCase();

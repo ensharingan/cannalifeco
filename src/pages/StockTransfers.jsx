@@ -43,6 +43,7 @@ export default function StockTransfers() {
   const [myStores, setMyStores] = useState([]);
   const [rcv, setRcv] = useState(null);            // { note, lines, counts, reasons, name, notes }
   const [detail, setDetail] = useState(null);      // { note, lines }
+  const [shopMoves, setShopMoves] = useState([]);   // stock-room receipts + found-on-count (GRNs, not shown under GRV)
 
   const load = useCallback(async () => {
     if (!companyId) return;
@@ -53,6 +54,12 @@ export default function StockTransfers() {
       supabase.rpc('ws_my_stores'),
     ]);
     setNotes(n.data || []); setStores(s.data || []); setMyStores(mine.data || []);
+    const [g, sup] = await Promise.all([
+      supabase.from('goods_received_notes').select('id, grn_number, received_date, store_id, supplier_id, source, status, created_at').eq('company_id', companyId).neq('status', 'draft').order('created_at', { ascending: false }).limit(300),
+      supabase.from('suppliers').select('id, name, is_internal').eq('company_id', companyId).eq('is_internal', true),
+    ]);
+    const internalIds = new Map((sup.data || []).map(x => [x.id, x.name]));
+    setShopMoves((g.data || []).filter(x => x.source === 'count_found' || internalIds.has(x.supplier_id)).map(x => ({ ...x, from_name: internalIds.get(x.supplier_id) || 'Stock count' })));
     setLoading(false);
   }, [companyId]);
   useEffect(() => { load(); }, [load]);
@@ -225,6 +232,27 @@ export default function StockTransfers() {
                 </tr>))}
           </tbody>
         </table>
+      </div>
+
+      <div className="space-y-2 pt-2">
+        <h2 className="text-lg font-semibold">Shop movements</h2>
+        <p className="text-xs text-muted-foreground">Stock-room receipts and stock found on count. Supplier deliveries are under Goods Received.</p>
+        <div className="border rounded-lg overflow-x-auto bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left"><tr><th className="p-3">Ref</th><th className="p-3">Date</th><th className="p-3">From</th><th className="p-3">To</th><th className="p-3">Type</th><th className="p-3">Status</th></tr></thead>
+            <tbody>
+              {shopMoves.filter(m => !q || (m.grn_number || '').toLowerCase().includes(q) || (stName[m.store_id] || '').toLowerCase().includes(q)).length === 0
+                ? <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No shop movements</td></tr>
+                : shopMoves.filter(m => !q || (m.grn_number || '').toLowerCase().includes(q) || (stName[m.store_id] || '').toLowerCase().includes(q)).map(m => (
+                  <tr key={m.id} className="border-t">
+                    <td className="p-3 font-medium">{m.grn_number}</td><td className="p-3">{m.received_date || (m.created_at || '').slice(0, 10)}</td>
+                    <td className="p-3">{m.from_name}</td><td className="p-3">{stName[m.store_id]}</td>
+                    <td className="p-3">{m.source === 'count_found' ? 'Found on count' : 'Stock room receipt'}</td>
+                    <td className="p-3 capitalize">{m.status}</td>
+                  </tr>))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>

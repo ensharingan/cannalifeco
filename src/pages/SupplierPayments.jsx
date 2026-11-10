@@ -142,6 +142,10 @@ export default function SupplierPayments() {
   // unchanged, so nothing changes for existing (non-batch) clients.
   const applyStockToInventory = async (order, opts) => {
     const silent = opts && opts.silent;
+    if (order.status === "ordered") {
+      if (!silent) toast.error("This order is still awaiting delivery. Receive it before adding stock.");
+      return { ok: false, reason: "not_received" };
+    }
     setApplyingStockId(order.id);
     try {
       const batchTracked = !!(company && company.batch_tracking_enabled);
@@ -186,6 +190,10 @@ export default function SupplierPayments() {
           applied += 1;
         }
 
+        if (applied === 0) {
+          if (!silent) toast.error("Nothing was added to stock — no received quantities on this order.");
+          return { ok: false, reason: "nothing_applied", applied_count: 0 };
+        }
         const { error: flagErr } = await supabase
           .from("supplier_purchase_orders")
           .update({ stock_applied: true, stock_applied_at: new Date().toISOString() })
@@ -218,8 +226,18 @@ export default function SupplierPayments() {
         return result;
       }
 
+      if (result.ok === false && result.reason === "not_received") {
+        if (!silent) toast.error("This order is still awaiting delivery. Receive it before adding stock.");
+        return result;
+      }
+
       const applied = result.applied_count || 0;
       const skipped = (result.skipped || []).length;
+
+      if (result.ok === false && applied === 0) {
+        if (!silent) toast.error("Nothing was added to stock — no received quantities on this order.");
+        return result;
+      }
 
       if (applied > 0) {
         toast.success(`${applied} line item${applied === 1 ? "" : "s"} added to inventory`);
@@ -1858,7 +1876,7 @@ export default function SupplierPayments() {
                 )}
 
                 {/* Add to inventory */}
-                {items.length > 0 && !o.stock_applied && o.status !== "cancelled" && (
+                {items.length > 0 && !o.stock_applied && o.status !== "cancelled" && o.status !== "ordered" && (
                   <Button
                     onClick={() => applyStockToInventory(o)}
                     disabled={applyingStockId === o.id}
