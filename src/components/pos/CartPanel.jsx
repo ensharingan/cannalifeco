@@ -374,6 +374,70 @@ function SplitPaymentDialog({ open, onClose, grandTotal, onConfirm }) {
   );
 }
 
+// ── Payment method: one button that opens a pop-up with big choices ──
+// Cash is always green and Card always blue so the two can't be mixed up at a glance.
+var PAYMENT_OPTIONS = [
+  { value: "cash", label: "Cash", icon: Banknote },
+  { value: "card", label: "Card", icon: CreditCard },
+  { value: "split", label: "Split Payment", icon: ArrowLeftRight },
+  { value: "payment_link", label: "Pay Link", icon: Link2 }
+];
+var PAYMENT_TAGS = { cash: "CASH", card: "CARD", eft: "EFT", mobile: "MOBILE PAY", split: "SPLIT", payment_link: "PAY LINK" };
+
+function paymentTone(v, active) {
+  if (v === "cash") return active ? "bg-emerald-600 text-white border-emerald-600" : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100";
+  if (v === "card") return active ? "bg-blue-600 text-white border-blue-600" : "bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100";
+  return active ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-border hover:bg-muted";
+}
+
+function PaymentMethodPicker({ value, onChange }) {
+  var [open, setOpen] = useState(false);
+  var current = null;
+  PAYMENT_OPTIONS.forEach(function (o) { if (o.value === value) current = o; });
+  var CurIcon = current ? current.icon : Wallet;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={function () { setOpen(true); }}
+        className={cn(
+          "w-full min-h-[52px] rounded-xl border-2 px-3 flex items-center justify-between gap-2 text-sm font-semibold touch-manipulation select-none transition-colors",
+          current ? paymentTone(value, true) : "bg-background text-muted-foreground border-dashed border-border"
+        )}
+      >
+        <span className="flex items-center gap-2">
+          <CurIcon className="w-5 h-5" />
+          <span className="text-xs font-normal opacity-80">Payment method</span>
+          <span>{current ? current.label : "Choose"}</span>
+        </span>
+        <ChevronDown className="w-4 h-4" />
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>How is the customer paying?</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            {PAYMENT_OPTIONS.map(function (o) {
+              var Icon = o.icon;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={function () { onChange(o.value); setOpen(false); }}
+                  aria-pressed={value === o.value}
+                  className={cn("min-h-[80px] rounded-2xl border-2 px-2 py-3 flex flex-col items-center justify-center gap-1 text-base font-bold leading-tight touch-manipulation select-none transition-colors", paymentTone(o.value, value === o.value))}
+                >
+                  <Icon className="w-7 h-7" />
+                  <span>{o.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function CartPanel({
   cart, onUpdateQty, onRemove, onClear,
   onUpdateLineDiscount,
@@ -1248,18 +1312,10 @@ export default function CartPanel({
             )}
 
             {/* Payment method */}
-            <Select value={paymentMethod} onValueChange={function (v) {
+            <PaymentMethodPicker value={paymentMethod} onChange={function (v) {
               setPaymentMethod(v);
               setConfirmedSplitDetails(null);
-            }}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Payment method" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash"><span className="flex items-center gap-2"><Banknote className="w-4 h-4" /> Cash</span></SelectItem>
-                <SelectItem value="card"><span className="flex items-center gap-2"><CreditCard className="w-4 h-4" /> Card</span></SelectItem>
-                <SelectItem value="split"><span className="flex items-center gap-2"><ArrowLeftRight className="w-4 h-4" /> Split Payment</span></SelectItem>
-                <SelectItem value="payment_link"><span className="flex items-center gap-2"><Link2 className="w-4 h-4" /> Pay Link</span></SelectItem>
-              </SelectContent>
-            </Select>
+            }} />
 
             {/* Payment link — QR, copy and WhatsApp; confirm once paid */}
             {paymentMethod === "payment_link" && cart.length > 0 && (
@@ -1439,7 +1495,7 @@ export default function CartPanel({
               ? "Collect Stock — " + fmtCredit(creditApplied > 0 ? creditApplied : dueBeforeCredit)
               : paymentMethod === "unpaid"
                 ? "Open Tab " + formatCurrency(grandTotal)
-                : "Charge " + formatCurrency(grandTotal)}
+                : "Charge " + formatCurrency(grandTotal) + (PAYMENT_TAGS[paymentMethod] ? " · " + PAYMENT_TAGS[paymentMethod] : "")}
         </Button>
 
         {!isVoucher && !isWalkIn && paymentMethod === "cash" && hasTendered && change > 0.005 && selectedMember && onAddChangeToCredit && (
