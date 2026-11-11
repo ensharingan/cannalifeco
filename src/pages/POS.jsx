@@ -306,6 +306,7 @@ export default function POS() {
   var [searchedMembers, setSearchedMembers] = useState([]);
   var [memberSearching, setMemberSearching] = useState(false);
   var [showMemberDialog, setShowMemberDialog] = useState(false);
+  var [showPayPicker, setShowPayPicker] = useState(false);
   var [showQuickAdd, setShowQuickAdd] = useState(false);
   var [discount, setDiscount] = useState(0);
   var [paymentMethod, setPaymentMethod] = useState(voucherMode ? "credit" : "cash");
@@ -1985,16 +1986,14 @@ export default function POS() {
               { k: "discount", label: "Discount", sub: "F4", icon: Percent, run: function () { fireCmd("discount"); } },
               { k: "tabs", label: "Save sale", sub: "F9", icon: Save, run: function () { setShowTabsSheet(true); }, hide: hideOpenTabs },
               { k: "pay", label: "Payment", sub: "F10", icon: CheckCircle, run: function () { fireCmd("pay"); } },
-              { k: "cash", label: "Cash", sub: "F8", icon: Banknote, run: function () { fireCmd("cash"); }, method: "cash" },
-              { k: "card", label: "Card", sub: "F7", icon: CreditCard, run: function () { fireCmd("card"); }, method: "card" },
-              { k: "eft", label: "EFT", sub: "F6", icon: ArrowLeftRight, run: function () { fireCmd("eft"); }, method: "split" },
-              { k: "payment_link", label: "Payment Link", sub: "\u00a0", icon: Link2, run: function () { fireCmd("payment_link"); }, method: "payment_link" },
+              { k: "method", label: "Payment method", sub: ({ cash: "Cash", card: "Card", split: "EFT / Split", payment_link: "Payment Link" })[cart.length > 0 ? paymentMethod : ""] || "Choose", icon: Banknote, run: function () { setShowPayPicker(true); }, method: cart.length > 0 ? paymentMethod : "", wide: true },
             ].filter(function (b) { return !b.hide; }).map(function (b) {
               var Icon = b.icon;
               var active = b.method && paymentMethod === b.method && cart.length > 0;
+              var tone = b.k !== "method" ? "" : (paymentMethod === "cash" && cart.length > 0 ? " !bg-emerald-600 !text-white !border-emerald-600" : (paymentMethod === "card" && cart.length > 0 ? " !bg-blue-600 !text-white !border-blue-600" : ""));
               return (
                 <button key={b.k} type="button" onClick={b.run} disabled={storeMismatch}
-                  className={"flex flex-col items-center justify-center min-w-[78px] px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors disabled:opacity-40 " + (active ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-border")}>
+                  className={"flex flex-col items-center justify-center " + (b.wide ? "min-w-[120px]" : "min-w-[78px]") + " px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors disabled:opacity-40" + tone + " " + (active ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-border")}>
                   <Icon className="w-5 h-5 mb-0.5" />
                   <span className="leading-tight whitespace-nowrap">{b.label}</span>
                   <span className="text-[9px] opacity-60 leading-tight">{b.sub}</span>
@@ -2002,6 +2001,30 @@ export default function POS() {
               );
             })}
           </div>
+          <Dialog open={showPayPicker} onOpenChange={setShowPayPicker}>
+            <DialogContent className="max-w-md">
+              <DialogHeader><DialogTitle>How is the customer paying?</DialogTitle></DialogHeader>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { cmd: "cash", label: "Cash", sub: "F8", icon: Banknote, tone: "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100" },
+                  { cmd: "card", label: "Card", sub: "F7", icon: CreditCard, tone: "bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100" },
+                  { cmd: "eft", label: "EFT", sub: "F6", icon: ArrowLeftRight, tone: "bg-background text-foreground border-border hover:bg-muted" },
+                  { cmd: "payment_link", label: "Payment Link", sub: "", icon: Link2, tone: "bg-background text-foreground border-border hover:bg-muted" }
+                ].map(function (o) {
+                  var OIcon = o.icon;
+                  return (
+                    <button key={o.cmd} type="button"
+                      onClick={function () { fireCmd(o.cmd); setShowPayPicker(false); }}
+                      className={"min-h-[80px] rounded-2xl border-2 px-2 py-3 flex flex-col items-center justify-center gap-1 text-base font-bold leading-tight touch-manipulation select-none transition-colors " + o.tone}>
+                      <OIcon className="w-7 h-7" />
+                      <span>{o.label}</span>
+                      {o.sub && <span className="hidden md:block text-[10px] font-normal opacity-70">{o.sub}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
           <div className="p-4 border-b border-border space-y-3">
             <div className="flex flex-wrap gap-2">
               <div className="relative w-64 shrink-0">
