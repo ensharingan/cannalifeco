@@ -262,9 +262,12 @@ export default function Inventory() {
   var [sortCol, setSortCol] = useState("name");
   var [sortDir, setSortDir] = useState("asc");
   var [showAdjust, setShowAdjust] = useState(false);
-  var [selectedProduct, setSelectedProduct] = useState("");
-  var [adjustQty, setAdjustQty] = useState(0);
-  var [adjustType, setAdjustType] = useState("restock");
+  // Bulk adjust: many lines, one shared note. Each line carries its own
+  // direction (add / remove) so a single save can mix both.
+  var newAdjustLine = function () { return { key: Math.random().toString(36).slice(2), product_id: "", dir: "add", qty: "" }; };
+  var [adjustLines, setAdjustLines] = useState(function () { return [newAdjustLine()]; });
+  var [addType, setAddType] = useState("restock");
+  var [removeType, setRemoveType] = useState("adjustment");
   var [adjustNotes, setAdjustNotes] = useState("");
   var [isSaving, setIsSaving] = useState(false);
   var [showTransfer, setShowTransfer] = useState(false);
@@ -689,75 +692,116 @@ export default function Inventory() {
     }
   };
 
+  var updateAdjustLine = function (key, patch) {
+    setAdjustLines(function (lines) {
+      return lines.map(function (l) { return l.key === key ? Object.assign({}, l, patch) : l; });
+    });
+  };
+
   var handleAdjust = async function () {
-    if (!selectedProduct || adjustQty === 0) return;
     if (!activeStoreId) {
       toast.error("Pick a specific store at the top of the page before adjusting stock");
       return;
     }
-    // Belt-and-braces: load-only staff can only ever post an increase, no
-    // matter what the movement-type dropdown was set to, since the options
-    // that decrease stock are already hidden from them in the UI below.
-    if (addOnlyMode && adjustType !== "restock" && adjustType !== "return") {
-      toast.error("You can only add stock, not adjust or remove it");
+    // Collapse lines to one net change per product, so the same product on two
+    // lines is applied once and can't race itself.
+    var net = {};
+    var order = [];
+    adjustLines.forEach(function (l) {
+      var q = Number(l.qty);
+      if (!l.product_id || !q || q <= 0) return;
+      if (addOnlyMode && l.dir !== "add") return;
+      if (!(l.product_id in net)) { net[l.product_id] = { add: 0, remove: 0 }; order.push(l.product_id); }
+      net[l.product_id][l.dir === "add" ? "add" : "remove"] += q;
+    });
+    if (order.length === 0) {
+      toast.error("Add at least one product with a quantity");
       return;
     }
     setIsSaving(true);
-    try {
-      var product = products.find(function (p) { return p.id === selectedProduct; });
-      var change = adjustType === "restock" || adjustType === "return" ? Math.abs(adjustQty) : -Math.abs(adjustQty);
-
-      // Find current store inventory row
-      var invRow = null;
-      for (var i = 0; i < storeInventory.length; i++) {
-        if (storeInventory[i].product_id === selectedProduct && storeInventory[i].store_id === activeStoreId) {
-          invRow = storeInventory[i];
-          break;
-        }
-      }
-
-      if (invRow) {
-        // Only stock_quantity is touched here. Writing the whole row would
-        // wipe any price override sitting on it.
-        await supabase
+    var done = 0;
+    var failed = [];
+    var failedIds = {};
+    for (var n = 0; n < order.length; n++) {
+      var pid = order[n];
+      var product = products.find(function (p) { return p.id === pid; });
+      var addQty = net[pid].add;
+      var removeQty = net[pid].remove;
+      var change = addQty - removeQty;
+      try {
+        // Re-read the live row so stale screen data can't overwrite stock.
+        var invRes = await supabase
           .from("store_inventory")
-          .update({ stock_quantity: (invRow.stock_quantity || 0) + change, updated_at: new Date().toISOString() })
-          .eq("id", invRow.id);
-      } else {
-        await supabase.from("store_inventory").insert({
-          company_id: companyId,
-          store_id: activeStoreId,
-          product_id: selectedProduct,
-          stock_quantity: Math.max(0, change),
-        });
+          .select("id, stock_quantity")
+          .eq("store_id", activeStoreId)
+          .eq("product_id", pid)
+          .maybeSingle();
+        if (invRes.error) throw invRes.error;
+        var invRow = invRes.data;
+        var before = invRow ? Number(invRow.stock_quantity || 0) : 0;
+        var after = Math.round((before + change) * 1000) / 1000;
+
+        if (invRow) {
+          // Only stock_quantity is touched. Writing the whole row would wipe
+          // any price override sitting on it.
+          var u = await supabase
+            .from("store_inventory")
+            .update({ stock_quantity: after, updated_at: new Date().toISOString() })
+            .eq("id", invRow.id);
+          if (u.error) throw u.error;
+        } else {
+          var ins = await supabase.from("store_inventory").insert({
+            company_id: companyId,
+            store_id: activeStoreId,
+            product_id: pid,
+            stock_quantity: after,
+          });
+          if (ins.error) throw ins.error;
+        }
+
+        // Backward compat: global products.stock_quantity.
+        var pr = await supabase
+          .from("products")
+          .update({ stock_quantity: Math.round(((product.stock_quantity || 0) + change) * 1000) / 1000 })
+          .eq("id", pid);
+        if (pr.error) throw pr.error;
+
+        // One movement per direction so history stays readable (restock vs damage).
+        var moves = [];
+        if (addQty > 0) moves.push({ qty: addQty, type: addType });
+        if (removeQty > 0) moves.push({ qty: -removeQty, type: removeType });
+        for (var m = 0; m < moves.length; m++) {
+          var mv = await supabase.from("inventory_movements").insert({
+            company_id: companyId,
+            product_id: pid,
+            product_name: product.name,
+            quantity_change: moves[m].qty,
+            movement_type: moves[m].type,
+            notes: adjustNotes,
+          });
+          if (mv.error) throw mv.error;
+        }
+        done++;
+      } catch (err) {
+        failedIds[pid] = true;
+        failed.push((product ? product.name : pid) + (err && err.message ? " (" + err.message + ")" : ""));
       }
-
-      // Also update the global products.stock_quantity for backward compat
-      await supabase
-        .from("products")
-        .update({ stock_quantity: (product.stock_quantity || 0) + change })
-        .eq("id", selectedProduct);
-
-      await supabase.from("inventory_movements").insert({
-        company_id: companyId,
-        product_id: selectedProduct,
-        product_name: product.name,
-        quantity_change: change,
-        movement_type: adjustType,
-        notes: adjustNotes,
-      });
-
-      toast.success("Inventory adjusted at " + storeName);
-      setShowAdjust(false);
-      setSelectedProduct("");
-      setAdjustQty(0);
-      setAdjustNotes("");
-      await load();
-    } catch (err) {
-      toast.error(err.message || "Failed to adjust");
-    } finally {
-      setIsSaving(false);
     }
+    setIsSaving(false);
+
+    if (failed.length === 0) {
+      toast.success(done + (done === 1 ? " product" : " products") + " adjusted at " + storeName);
+      setShowAdjust(false);
+      setAdjustLines([newAdjustLine()]);
+      setAdjustNotes("");
+    } else {
+      toast.error(done + " saved, " + failed.length + " failed: " + failed.join("; "));
+      // Keep only the failed products on screen so a retry can't double-apply the saved ones.
+      setAdjustLines(function (lines) {
+        return lines.filter(function (l) { return failedIds[l.product_id]; });
+      });
+    }
+    await load();
   };
 
   var handleTransfer = async function () {
@@ -1412,7 +1456,7 @@ export default function Inventory() {
           if there's only one legitimate option, so a picker just adds a step
           for no reason. */}
       <Dialog open={showAdjust} onOpenChange={setShowAdjust}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-xl">
           <DialogHeader><DialogTitle>{addOnlyMode ? "Load Stock" : "Adjust Stock"}</DialogTitle></DialogHeader>
           {!activeStoreId ? (
             <div className="space-y-3">
@@ -1437,35 +1481,86 @@ export default function Inventory() {
             </div>
           )}
           <div className="space-y-4">
-            <div>
-              <Label>Product</Label>
-              <ProductPicker
-                value={selectedProduct}
-                onChange={setSelectedProduct}
-                products={mergedProducts}
-                showStock
-                storeId={activeStoreId || ""}
-                storeInventory={storeInventory}
-              />
-            </div>
             {!addOnlyMode && (
-              <div>
-                <Label>Movement Type</Label>
-                <Select value={adjustType} onValueChange={setAdjustType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="restock">Restock (+)</SelectItem>
-                    <SelectItem value="adjustment">Adjustment (-)</SelectItem>
-                    <SelectItem value="damage">Damage (-)</SelectItem>
-                    <SelectItem value="return">Return (+)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Reason for additions (+)</Label>
+                  <Select value={addType} onValueChange={setAddType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="restock">Restock</SelectItem>
+                      <SelectItem value="return">Return</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Reason for removals (-)</Label>
+                  <Select value={removeType} onValueChange={setRemoveType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="adjustment">Adjustment</SelectItem>
+                      <SelectItem value="damage">Damage</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
-            <div><Label>Quantity</Label><Input type="number" min={1} value={adjustQty} onChange={function (e) { setAdjustQty(Number(e.target.value)); }} /></div>
-            <div><Label>Notes</Label><Input value={adjustNotes} onChange={function (e) { setAdjustNotes(e.target.value); }} placeholder="Optional reason" /></div>
-            <Button onClick={handleAdjust} disabled={!selectedProduct || adjustQty === 0 || isSaving || !activeStoreId} className="w-full">
-              {isSaving ? "Saving..." : addOnlyMode ? "Add Stock" : "Apply Adjustment"}
+            <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+              {adjustLines.map(function (l) {
+                return (
+                  <div key={l.key} className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <ProductPicker
+                        value={l.product_id}
+                        onChange={function (v) { updateAdjustLine(l.key, { product_id: v }); }}
+                        products={mergedProducts}
+                        showStock
+                        storeId={activeStoreId || ""}
+                        storeInventory={storeInventory}
+                      />
+                    </div>
+                    {!addOnlyMode && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn("w-10 px-0 font-bold", l.dir === "add" ? "text-green-500" : "text-red-500")}
+                        onClick={function () { updateAdjustLine(l.key, { dir: l.dir === "add" ? "remove" : "add" }); }}
+                        title={l.dir === "add" ? "Adding stock - click to remove instead" : "Removing stock - click to add instead"}
+                      >
+                        {l.dir === "add" ? "+" : "−"}
+                      </Button>
+                    )}
+                    <Input
+                      type="number"
+                      min={0}
+                      className="w-24"
+                      placeholder="Qty"
+                      value={l.qty}
+                      onChange={function (e) { updateAdjustLine(l.key, { qty: e.target.value }); }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="px-2 text-muted-foreground"
+                      disabled={adjustLines.length === 1}
+                      onClick={function () { setAdjustLines(function (ls) { return ls.filter(function (x) { return x.key !== l.key; }); }); }}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+            <Button type="button" variant="outline" className="w-full" onClick={function () { setAdjustLines(function (ls) { return ls.concat([newAdjustLine()]); }); }}>
+              + Add another product
+            </Button>
+            <div><Label>Note (applies to all lines)</Label><Input value={adjustNotes} onChange={function (e) { setAdjustNotes(e.target.value); }} placeholder="Optional reason" /></div>
+            <Button
+              onClick={handleAdjust}
+              disabled={isSaving || !activeStoreId || !adjustLines.some(function (l) { return l.product_id && Number(l.qty) > 0; })}
+              className="w-full"
+            >
+              {isSaving ? "Saving..." : addOnlyMode ? "Add Stock" : "Apply " + adjustLines.filter(function (l) { return l.product_id && Number(l.qty) > 0; }).length + " Adjustment(s)"}
             </Button>
           </div>
         </DialogContent>
