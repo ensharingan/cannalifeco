@@ -50,6 +50,7 @@ import HelpCenter from './pages/HelpCenter';
 import StockValueReport from './pages/StockValueReport';
 import PaymentBreakdownReport from './pages/PaymentBreakdownReport';
 import SalesByProductReport from './pages/SalesByProductReport';
+import DiscountsReport from './pages/DiscountsReport';
 import VatReport from './pages/VatReport';
 import PrintLabels from './pages/PrintLabels';
 import Membership from './pages/Membership';
@@ -176,6 +177,7 @@ const AuthenticatedApp = () => {
         <Route path="/payment-breakdown" element={<PaymentBreakdownReport />} />
         <Route path="/stock-value-report" element={<StockValueReport />} />
         <Route path="/sales-by-product" element={<SalesByProductReport />} />
+        <Route path="/discounts-report" element={<DiscountsReport />} />
         <Route path="/vat-report" element={<VatReport />} />
         <Route path="/cashiers" element={<Cashiers />} />
         <Route path="/till-cash-outs" element={<TillCashOuts />} />

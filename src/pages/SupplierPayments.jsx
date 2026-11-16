@@ -70,6 +70,8 @@ export default function SupplierPayments() {
   const [bulkPlan, setBulkPlan] = useState(null); // { groups: [{supplier_id, supplier_name, lines: [...]}], noSupplier: [...], onOrder: n }
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkSkip, setBulkSkip] = useState({}); // supplier_id -> true when unticked
+  const [showLists, setShowLists] = useState(false);
+  const [reorderLists, setReorderLists] = useState([]);
   const autoFillKey = useRef("");
   const [showPayment, setShowPayment] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
@@ -539,6 +541,8 @@ export default function SupplierPayments() {
       if (oErr) throw oErr;
       const onOrder = new Set();
       (open || []).forEach(o => parseItems(o.items).forEach(i => { if (i.product_id) onOrder.add(i.product_id); }));
+      const { data: openLists } = await supabase.from("reorder_lists").select("groups").eq("company_id", companyId).eq("store_id", storeId).eq("status", "open");
+      (openLists || []).forEach(rl => (rl.groups || []).forEach(g => (g.lines || []).forEach(l => { if (l.product_id) onOrder.add(l.product_id); })));
 
       const byId = Object.fromEntries(products.map(p => [p.id, p]));
       const supById = Object.fromEntries(suppliers.map(x => [x.id, x]));
@@ -579,24 +583,34 @@ export default function SupplierPayments() {
     setBulkBusy(true);
     try {
       const uid = (await supabase.auth.getUser()).data.user?.id || null;
-      const rows = groups.map(g => {
-        const total = g.lines.reduce((sum, l) => sum + (Number(l.line_total) || 0), 0);
-        return {
-          company_id: companyId, supplier_id: g.supplier_id, store_id: bulkStoreId,
-          order_number: newPoNumber(), invoice_total: total, calculated_total: total,
-          items: JSON.stringify(g.lines.map(({ stock, reorder_point, ...l }) => ({ ...l, received_quantity: 0 }))),
-          notes: "Auto-generated from reorder levels", payment_type: "terms", status: "ordered",
-          amount_paid: 0, stock_applied: false, created_by: uid,
-        };
-      });
-      const { error } = await supabase.from("supplier_purchase_orders").insert(rows);
+      const d = new Date();
+      const listNo = `RL-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+      // One internal reorder list for the whole store. Suppliers never see it; raise a PO from it per supplier only when you want one.
+      const payload = groups.map(g => ({ supplier_id: g.supplier_id, supplier_name: g.supplier_name, lines: g.lines.map(({ stock, reorder_point, ...l }) => l) }));
+      const { error } = await supabase.from("reorder_lists").insert({ company_id: companyId, store_id: bulkStoreId, list_number: listNo, groups: payload, status: "open", created_by: uid });
       if (error) throw error;
-      toast.success(`${rows.length} purchase order${rows.length === 1 ? "" : "s"} created. Send each one to its supplier from the Orders list.`);
+      toast.success(`Reorder list ${listNo} created (${groups.reduce((n, g) => n + g.lines.length, 0)} items, ${groups.length} supplier${groups.length === 1 ? "" : "s"}). It is internal only.`);
       setBulkOpen(false); setBulkPlan(null);
-      load();
-    } catch (e) { toast.error(e.message || "Could not create the orders"); }
+      openLists();
+    } catch (e) { toast.error(e.message || "Could not create the reorder list"); }
     finally { setBulkBusy(false); }
   };
+
+  const openLists = async () => {
+    const { data, error } = await supabase.from("reorder_lists").select("*").eq("company_id", companyId).neq("status", "cancelled").order("created_at", { ascending: false }).limit(50);
+    if (error) { toast.error(error.message); return; }
+    setReorderLists(data || []); setShowLists(true);
+  };
+  const setListStatus = async (rl, status) => {
+    const { error } = await supabase.from("reorder_lists").update({ status }).eq("id", rl.id);
+    if (error) { toast.error(error.message); return; }
+    setReorderLists(prev => status === "cancelled" ? prev.filter(x => x.id !== rl.id) : prev.map(x => x.id === rl.id ? { ...x, status } : x));
+  };
+  const listText = (rl) => {
+    const store = (stores.find(st => st.id === rl.store_id)?.name || "").replace(/^Canna Life Co - /, "");
+    return [`*Reorder list ${rl.list_number}* - ${store}`, "", ...(rl.groups || []).flatMap(g => [`*${g.supplier_name}*`, ...(g.lines || []).map(l => `• ${l.quantity} × ${l.product_name}`), ""])].join("\n");
+  };
+  const copyList = async (rl) => { try { await navigator.clipboard.writeText(listText(rl)); toast.success("List copied"); } catch (_) { toast.error("Could not copy"); } };
 
   const setOrderQty = (idx, val) => {
     setOrderForm(prev => ({
@@ -957,6 +971,11 @@ export default function SupplierPayments() {
                   <Package className="w-4 h-4" /> Reorder All Suppliers
                 </Button>
               )}
+              {canReorder && (
+                <Button variant="outline" onClick={openLists} className="gap-2">
+                  <ClipboardList className="w-4 h-4" /> Reorder lists
+                </Button>
+              )}
               <Button variant="outline" onClick={() => { setOrderMode("receive"); setReceivingPoId(null); setShowNewOrder(true); setOrderForm({ ...emptyOrderForm, store_id: activeStoreId || (stores[0] && stores[0].id) || "" }); }} className="gap-2">
                 <Truck className="w-4 h-4" /> Receive Stock
               </Button>
@@ -1096,6 +1115,7 @@ export default function SupplierPayments() {
                   <tr className="border-b border-border bg-muted/30">
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Supplier</th>
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground hidden sm:table-cell">Order #</th>
+                    <th className="text-left p-3 text-xs font-semibold text-muted-foreground">For shop</th>
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Invoice</th>
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground hidden md:table-cell">Paid</th>
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Balance</th>
@@ -1120,6 +1140,7 @@ export default function SupplierPayments() {
                           {isWrittenOff && <p className="text-xs text-orange-400 font-medium">Written off</p>}
                         </td>
                         <td className="p-3 text-sm text-muted-foreground hidden sm:table-cell font-mono">{o.order_number || o.id.slice(0, 8)}</td>
+                        <td className="p-3 text-sm font-medium">{(stores.find(st => st.id === o.store_id)?.name || "-").replace(/^Canna Life Co - /, "")}</td>
                         <td className="p-3 text-sm font-semibold">{formatCurrency(o.invoice_total)}</td>
                         <td className="p-3 text-sm text-green-400 hidden md:table-cell">{formatCurrency(o.amount_paid || 0)}</td>
                         <td className="p-3"><span className={`text-sm font-bold ${balance > 0 && o.status !== "cancelled" && o.status !== "ordered" ? "text-red-400" : "text-muted-foreground"}`}>{o.status === "cancelled" || o.status === "ordered" ? "—" : formatCurrency(balance)}</span></td>
@@ -1351,7 +1372,7 @@ export default function SupplierPayments() {
             {bulkPlan && (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Items at or below their reorder point are ordered at the preferred quantity, one purchase order per supplier. Remove or change lines first. Nothing is received or owed until the goods arrive.
+                  Items at or below their reorder point go on ONE internal reorder list for this store, grouped by supplier, at the preferred quantity. Suppliers do not see it. Remove or change lines first.
                   {bulkPlan.onOrder > 0 && ` ${bulkPlan.onOrder} item${bulkPlan.onOrder === 1 ? " is" : "s are"} already on an open order and skipped.`}
                 </p>
                 {bulkPlan.groups.length > 1 && (
@@ -1395,9 +1416,36 @@ export default function SupplierPayments() {
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setBulkOpen(false)}>Close</Button>
               <Button disabled={bulkBusy || !bulkPlan || bulkPlan.groups.filter(g => !bulkSkip[g.supplier_id]).length === 0} onClick={createBulkOrders}>
-                {bulkBusy ? "Working..." : `Create ${bulkPlan ? bulkPlan.groups.filter(g => !bulkSkip[g.supplier_id]).length : 0} purchase order${bulkPlan && bulkPlan.groups.filter(g => !bulkSkip[g.supplier_id]).length === 1 ? "" : "s"}`}
+                {bulkBusy ? "Working..." : "Create reorder list"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLists} onOpenChange={setShowLists}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Reorder lists (internal only)</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            {reorderLists.length === 0 && <p className="text-sm text-muted-foreground">No reorder lists yet.</p>}
+            {reorderLists.map(rl => (
+              <div key={rl.id} className={`border rounded-lg ${rl.status === "done" ? "opacity-60" : ""}`}>
+                <div className="flex justify-between items-center px-3 py-2 bg-muted/40 rounded-t-lg flex-wrap gap-2">
+                  <div className="font-medium">{rl.list_number} <span className="text-sm text-muted-foreground">· {(stores.find(st => st.id === rl.store_id)?.name || "").replace(/^Canna Life Co - /, "")} · {new Date(rl.created_at).toLocaleDateString("en-ZA")} · {rl.status}</span></div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" onClick={() => copyList(rl)}>Copy</Button>
+                    {rl.status === "open" && <Button size="sm" variant="outline" onClick={() => setListStatus(rl, "done")}>Mark done</Button>}
+                    <Button size="sm" variant="ghost" className="text-red-500" onClick={() => { if (window.confirm("Remove this reorder list?")) setListStatus(rl, "cancelled"); }}>Remove</Button>
+                  </div>
+                </div>
+                {(rl.groups || []).map(g => (
+                  <div key={g.supplier_id} className="px-3 py-2 border-t text-sm">
+                    <div className="font-medium mb-1">{g.supplier_name}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">{(g.lines || []).map(l => <div key={l.product_id} className="flex justify-between"><span className="truncate">{l.product_name}</span><span className="font-medium ml-2">{l.quantity}</span></div>)}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

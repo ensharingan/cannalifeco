@@ -14,6 +14,7 @@ import { useCompany } from "../lib/CompanyContext";
 
 const statusColors = {
   draft: "bg-slate-100 text-slate-600 border-slate-200",
+  awaiting_acceptance: "bg-blue-500/10 text-blue-500 border-blue-500/30",
   posted: "bg-green-500/10 text-green-600 border-green-200",
   cancelled: "bg-red-500/10 text-red-600 border-red-200",
 };
@@ -60,6 +61,7 @@ export default function GoodsReceiving() {
   const [prodSearch, setProdSearch] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [showPaste, setShowPaste] = useState(false);
+  const [acc, setAcc] = useState(null);   // { grn, lines, counts, reasons, name }
   const searchRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -267,18 +269,21 @@ export default function GoodsReceiving() {
     } else if (internal && !isMgr) {
       return toast.error('Stock room stock is received against a request the stock room has issued. Pick the request first');
     }
-    if (post && !window.confirm(`Post ${grnNumber || 'this GRV'} and add stock to ${storeById[header.store_id]?.name || 'the store'}? This cannot be undone.`)) return;
+    const hold = !!post && !header.request_id;   // supplier deliveries wait for the store to accept (count) them
+    if (post && !window.confirm(hold
+      ? `Submit ${grnNumber || 'this GRV'} for ${storeById[header.store_id]?.name || 'the store'}? Stock is only added once the store accepts the delivery and counts it in.`
+      : `Post ${grnNumber || 'this GRV'} and add stock to ${storeById[header.store_id]?.name || 'the store'}? This cannot be undone.`)) return;
     setSaving(true);
     try {
       const { data, error } = await supabase.rpc('grv_save', {
         p_grn_id: editingId,
-        p_header: { ...header, short_reasons: reasons },
+        p_header: { ...header, short_reasons: reasons, hold_for_acceptance: hold },
         p_lines: active.map(l => ({ product_id: l.product_id, quantity: Number(l.quantity), unit_cost: Number(l.unit_cost) || 0, vat_type: l.vat_type || productById[l.product_id]?.vat_type || 'standard' })),
         p_post: !!post,
       });
       if (error) throw error;
       writeLast({ store_id: header.store_id, supplier_id: header.supplier_id });
-      toast.success(post ? `${data?.grn_number} posted: stock added` : `${data?.grn_number} saved as draft`);
+      toast.success(data?.status === 'awaiting_acceptance' ? `${data?.grn_number} submitted: stock is added when the store accepts it` : post ? `${data?.grn_number} posted: stock added` : `${data?.grn_number} saved as draft`);
       setOpen(false);
       load();
     } catch (err) {
@@ -286,6 +291,25 @@ export default function GoodsReceiving() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const openAccept = async (g) => {
+    const { data, error } = await supabase.from('grn_lines').select('id, product_id, product_name, sku, quantity').eq('grn_id', g.id).order('product_name');
+    if (error) return toast.error(error.message);
+    const counts = {}; (data || []).forEach(l => { counts[l.product_id] = String(l.quantity); });
+    setAcc({ grn: g, lines: data || [], counts, reasons: {}, name: '' });
+  };
+  const confirmAccept = async () => {
+    const { grn, lines: ls, counts, reasons, name } = acc;
+    if (!name.trim()) return toast.error('Enter the name of the person accepting the delivery');
+    const payload = ls.map(l => ({ product_id: l.product_id, received_quantity: Number(counts[l.product_id]), reason: reasons[l.product_id] || null }));
+    if (payload.some(x => isNaN(x.received_quantity))) return toast.error('Count every product');
+    setSaving(true);
+    const { data, error } = await supabase.rpc('grv_accept', { p_grn_id: grn.id, p_name: name, p_lines: payload });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(`${data?.grn_number || grn.grn_number} accepted: stock added`);
+    setAcc(null); load();
   };
 
   const cancelDraft = async (g) => {
@@ -301,7 +325,7 @@ export default function GoodsReceiving() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="w-6 h-6" /> Goods Received (GRV)</h1>
-          <p className="text-sm text-muted-foreground">Capture every delivery the day it arrives, including stock from the stock room. Posting a GRV adds the quantities to stock, so counts stay accurate.</p>
+          <p className="text-sm text-muted-foreground">Capture every delivery the day it arrives, including stock from the stock room. Supplier deliveries are submitted, then the store accepts them (counts them in) before stock is added. Stock room requests post straight away.</p>
         </div>
         <Button onClick={newGrv}><Plus className="w-4 h-4 mr-1" /> New GRV</Button>
       </div>
@@ -322,6 +346,7 @@ export default function GoodsReceiving() {
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="awaiting_acceptance">Awaiting acceptance</SelectItem>
             <SelectItem value="posted">Posted</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
@@ -350,10 +375,11 @@ export default function GoodsReceiving() {
                 <td className="p-3">{storeById[g.store_id]?.name || '-'}</td>
                 <td className="p-3">{g.delivery_note_no || '-'}</td>
                 {isMgr && <td className="p-3 text-right">{formatCurrency(g.total_incl || 0)}</td>}
-                <td className="p-3"><span className={cn("px-2 py-0.5 rounded-full border text-xs capitalize", statusColors[g.status])}>{g.status}</span></td>
+                <td className="p-3"><span className={cn("px-2 py-0.5 rounded-full border text-xs capitalize", statusColors[g.status])}>{g.status === 'awaiting_acceptance' ? 'awaiting acceptance' : g.status}</span></td>
                 <td className="p-3 text-right whitespace-nowrap">
                   <Button size="sm" variant="ghost" onClick={() => openGrv(g)}><Eye className="w-4 h-4 mr-1" />{g.status === 'draft' ? 'Edit' : 'View'}</Button>
-                  {g.status === 'draft' && <Button size="sm" variant="ghost" className="text-red-600" onClick={() => cancelDraft(g)}>Cancel</Button>}
+                  {g.status === 'awaiting_acceptance' && <Button size="sm" onClick={() => openAccept(g)}>Accept delivery</Button>}
+                  {(g.status === 'draft' || g.status === 'awaiting_acceptance') && <Button size="sm" variant="ghost" className="text-red-600" onClick={() => cancelDraft(g)}>Cancel</Button>}
                 </td>
               </tr>
             ))}
@@ -510,9 +536,37 @@ export default function GoodsReceiving() {
           {!readOnly && (
             <div className="flex justify-end gap-2">
               <Button variant="outline" disabled={saving} onClick={() => save(false)}>Save draft</Button>
-              <Button disabled={saving} onClick={() => save(true)}>Post and add stock</Button>
+              <Button disabled={saving} onClick={() => save(true)}>{header.request_id ? 'Post and add stock' : 'Submit for acceptance'}</Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!acc} onOpenChange={o => !o && setAcc(null)}>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Accept {acc?.grn.grn_number} at {acc && storeById[acc.grn.store_id]?.name}</DialogTitle></DialogHeader>
+          {acc && (<>
+            <p className="text-sm text-muted-foreground">Count what is physically in the delivery. Stock is added to the store only for what you count. If a count is lower than the delivery note, say why.</p>
+            <div className="border rounded-lg overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left"><tr><th className="p-2">Product</th><th className="p-2 w-20 text-right">On note</th><th className="p-2 w-28">Counted</th><th className="p-2">Reason if short</th></tr></thead>
+                <tbody>
+                  {acc.lines.map(l => {
+                    const short = Number(acc.counts[l.product_id]) < Number(l.quantity);
+                    return (
+                      <tr key={l.id} className="border-t">
+                        <td className="p-2"><div className="font-medium">{l.product_name}</div><div className="text-xs text-muted-foreground">{l.sku}</div></td>
+                        <td className="p-2 text-right">{l.quantity}</td>
+                        <td className="p-2"><Input type="number" min="0" max={l.quantity} step="any" className={short ? "border-amber-500" : ""} value={acc.counts[l.product_id]} onChange={e => setAcc(a => ({ ...a, counts: { ...a.counts, [l.product_id]: e.target.value } }))} /></td>
+                        <td className="p-2">{short && <Input placeholder="Missing / damaged..." value={acc.reasons[l.product_id] || ''} onChange={e => setAcc(a => ({ ...a, reasons: { ...a.reasons, [l.product_id]: e.target.value } }))} />}</td>
+                      </tr>);
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div><Label>Accepted by (name)</Label><Input value={acc.name} onChange={e => setAcc(a => ({ ...a, name: e.target.value }))} /></div>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setAcc(null)}>Close</Button><Button disabled={saving} onClick={confirmAccept}>Confirm and add stock</Button></div>
+          </>)}
         </DialogContent>
       </Dialog>
     </div>
