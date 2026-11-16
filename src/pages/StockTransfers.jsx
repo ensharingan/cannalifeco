@@ -14,8 +14,9 @@ import { parsePasteList, buildIndex, matchItem } from "@/lib/pasteList";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyHeader = () => ({ from_store_id: "", to_store_id: "", transfer_date: today(), dispatched_by_name: "", driver_name: "", vehicle_reg: "", notes: "" });
-const STATUS_LABEL = { dispatched: 'In transit', received: 'Received', received_variance: 'Shortfall', variance_closed: 'Shortfall closed', cancelled: 'Cancelled' };
+const STATUS_LABEL = { draft: 'Draft', dispatched: 'In transit', received: 'Received', received_variance: 'Shortfall', variance_closed: 'Shortfall closed', cancelled: 'Cancelled' };
 const STATUS_CLS = {
+  draft: "bg-slate-500/10 text-slate-500 border-slate-500/30",
   dispatched: "bg-blue-500/10 text-blue-500 border-blue-500/30", received: "bg-green-500/10 text-green-500 border-green-500/30",
   received_variance: "bg-amber-500/10 text-amber-500 border-amber-500/30", variance_closed: "bg-muted text-muted-foreground border-border", cancelled: "bg-muted text-muted-foreground border-border",
 };
@@ -43,6 +44,8 @@ export default function StockTransfers() {
   const [myStores, setMyStores] = useState([]);
   const [rcv, setRcv] = useState(null);            // { note, lines, counts, reasons, name, notes }
   const [detail, setDetail] = useState(null);      // { note, lines }
+  const [editingId, setEditingId] = useState(null); // draft being edited
+  const [allowNeg, setAllowNeg] = useState(false);  // company allows stock to go negative
 
   const load = useCallback(async () => {
     if (!companyId) return;
@@ -53,6 +56,8 @@ export default function StockTransfers() {
       supabase.rpc('ws_my_stores'),
     ]);
     setNotes(n.data || []); setStores(s.data || []); setMyStores(mine.data || []);
+    const { data: co } = await supabase.from('companies').select('allow_negative_stock').eq('id', companyId).maybeSingle();
+    setAllowNeg(!!co?.allow_negative_stock);
     setLoading(false);
   }, [companyId]);
   useEffect(() => { load(); }, [load]);
@@ -63,15 +68,16 @@ export default function StockTransfers() {
     (async () => {
       const rows = [];
       for (let from = 0; ; from += 1000) {
-        const { data } = await supabase.from('store_inventory').select('product_id, stock_quantity, products(id, name, sku, barcode)')
-          .eq('store_id', header.from_store_id).gt('stock_quantity', 0).range(from, from + 999);
+        let q = supabase.from('store_inventory').select('product_id, stock_quantity, products(id, name, sku, barcode)').eq('store_id', header.from_store_id);
+        if (!allowNeg) q = q.gt('stock_quantity', 0);   // when negative stock is allowed, every product the store carries can be sent
+        const { data } = await q.range(from, from + 999);
         rows.push(...(data || []));
         if (!data || data.length < 1000) break;
       }
       setStock(Object.fromEntries(rows.map(r => [r.product_id, Number(r.stock_quantity)])));
       setProducts(rows.map(r => r.products).filter(Boolean));
     })();
-  }, [header.from_store_id]);
+  }, [header.from_store_id, allowNeg]);
 
   const stName = useMemo(() => Object.fromEntries(stores.map(s => [s.id, s.name])), [stores]);
 
@@ -135,25 +141,58 @@ export default function StockTransfers() {
     w.document.close(); w.print();
   };
 
-  const save = async () => {
-    if (!header.from_store_id || !header.to_store_id) return toast.error('Choose both stores');
-    if (header.from_store_id === header.to_store_id) return toast.error('Source and destination must be different');
-    if (lines.length === 0) return toast.error('Add at least one product');
-    if (lines.some(l => !(Number(l.quantity) > 0))) return toast.error('Every line needs a quantity above zero');
-    const over = lines.filter(l => Number(l.quantity) > (stock[l.product_id] || 0));
-    if (over.length) return toast.error(`More than available at ${stName[header.from_store_id]}: ${over.slice(0, 3).map(l => l.product_name).join(', ')}${over.length > 3 ? '...' : ''}. Lower the Send quantity.`);
-    if (!window.confirm(`Dispatch stock from ${stName[header.from_store_id]} to ${stName[header.to_store_id]}? It leaves ${stName[header.from_store_id]} now and lands at ${stName[header.to_store_id]} when they confirm the count.`)) return;
+  const validate = (forDispatch) => {
+    if (!header.from_store_id || !header.to_store_id) { toast.error('Choose both stores'); return false; }
+    if (header.from_store_id === header.to_store_id) { toast.error('Source and destination must be different'); return false; }
+    if (lines.length === 0) { toast.error('Add at least one product'); return false; }
+    if (lines.some(l => !(Number(l.quantity) > 0))) { toast.error('Every line needs a quantity above zero'); return false; }
+    if (forDispatch && !allowNeg) {
+      const over = lines.filter(l => Number(l.quantity) > (stock[l.product_id] || 0));
+      if (over.length) { toast.error(`More than available at ${stName[header.from_store_id]}: ${over.slice(0, 3).map(l => l.product_name).join(', ')}${over.length > 3 ? '...' : ''}. Lower the Send quantity.`); return false; }
+    }
+    return true;
+  };
+  const draftPayload = () => lines.map(l => ({ product_id: l.product_id, quantity: Number(l.quantity) }));
+
+  const saveDraft = async () => {
+    if (!validate(false)) return;
     setSaving(true);
-    const { data, error } = await supabase.rpc('transfer_create', {
-      p_header: header, p_lines: lines.map(l => ({ product_id: l.product_id, quantity: Number(l.quantity) })),
-    });
+    const { data, error } = await supabase.rpc('transfer_save_draft', { p_id: editingId, p_header: header, p_lines: draftPayload() });
     setSaving(false);
     if (error) return toast.error(error.message);
+    toast.success(`${data.transfer_number} saved as a draft. No stock has moved.`);
+    setOpen(false); setEditingId(null); load();
+  };
+
+  const save = async () => {
+    if (!validate(true)) return;
+    if (!window.confirm(`Dispatch stock from ${stName[header.from_store_id]} to ${stName[header.to_store_id]}? It leaves ${stName[header.from_store_id]} now and lands at ${stName[header.to_store_id]} when they confirm the count.`)) return;
+    setSaving(true);
+    // Save the latest lines as a draft, then dispatch it: a failed dispatch leaves a draft to fix instead of losing the work.
+    const d = await supabase.rpc('transfer_save_draft', { p_id: editingId, p_header: header, p_lines: draftPayload() });
+    if (d.error) { setSaving(false); return toast.error(d.error.message); }
+    setEditingId(d.data.id);
+    const { data, error } = await supabase.rpc('transfer_dispatch_draft', { p_id: d.data.id });
+    setSaving(false);
+    if (error) { load(); return toast.error(error.message + ' (kept as a draft)'); }
     toast.success(`${data.transfer_number} created`);
-    setOpen(false);
+    setOpen(false); setEditingId(null);
     await load();
     const { data: n } = await supabase.from('stock_transfer_notes').select('*').eq('id', data.id).single();
     if (n) printNote(n);
+  };
+
+  const openDraft = async (n) => {
+    const { data } = await supabase.from('stock_transfer_note_lines').select('*').eq('note_id', n.id).order('product_name');
+    setHeader({ from_store_id: n.from_store_id, to_store_id: n.to_store_id, transfer_date: n.transfer_date || today(), dispatched_by_name: n.dispatched_by_name || '', driver_name: n.driver_name || '', vehicle_reg: n.vehicle_reg || '', notes: n.notes || '' });
+    setLines((data || []).map(l => ({ product_id: l.product_id, product_name: l.product_name, sku: l.sku, quantity: l.quantity })));
+    setProdSearch(''); setNotFound([]); setShowPaste(false); setEditingId(n.id); setOpen(true);
+  };
+  const deleteDraft = async (n) => {
+    if (!window.confirm(`Delete draft ${n.transfer_number}? No stock has moved, so nothing changes.`)) return;
+    const { error } = await supabase.rpc('transfer_delete_draft', { p_id: n.id });
+    if (error) return toast.error(error.message);
+    toast.success('Draft deleted'); load();
   };
 
   const openReceive = async (n) => {
@@ -170,7 +209,7 @@ export default function StockTransfers() {
     const { data, error } = await supabase.rpc('transfer_receive', { p_id: note.id, p_name: name, p_lines: payload, p_notes: rn || null });
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success(data.variance ? `${note.transfer_number} received with a shortfall: a manager has to resolve it` : `${note.transfer_number} received, stock added`);
+    toast.success(data.variance ? `${note.transfer_number} received with a shortfall: a manager has to resolve it` : data.surplus ? `${note.transfer_number} received, extra stock taken off ${stName[note.from_store_id]}` : `${note.transfer_number} received, stock added`);
     setRcv(null); load();
   };
   const openDetail = async (n) => {
@@ -191,7 +230,8 @@ export default function StockTransfers() {
   };
 
   const q = search.toLowerCase();
-  const filtered = notes.filter(n => !q || n.transfer_number.toLowerCase().includes(q) || (stName[n.from_store_id] || '').toLowerCase().includes(q) || (stName[n.to_store_id] || '').toLowerCase().includes(q));
+  const drafts = notes.filter(n => n.status === 'draft' && (!q || n.transfer_number.toLowerCase().includes(q) || (stName[n.from_store_id] || '').toLowerCase().includes(q) || (stName[n.to_store_id] || '').toLowerCase().includes(q)));
+  const filtered = notes.filter(n => n.status !== 'draft').filter(n => !q || n.transfer_number.toLowerCase().includes(q) || (stName[n.from_store_id] || '').toLowerCase().includes(q) || (stName[n.to_store_id] || '').toLowerCase().includes(q));
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
@@ -200,10 +240,24 @@ export default function StockTransfers() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><ArrowRightLeft className="w-6 h-6" /> Stock Transfers</h1>
           <p className="text-sm text-muted-foreground">Dispatch stock to another store and print the delivery note. Stock only lands at the receiving store once they count it in.</p>
         </div>
-        <Button onClick={() => { setHeader(emptyHeader()); setLines([]); setProdSearch(""); setNotFound([]); setShowPaste(false); setOpen(true); }}><Plus className="w-4 h-4 mr-1" /> New transfer</Button>
+        <Button onClick={() => { setEditingId(null); setHeader(emptyHeader()); setLines([]); setProdSearch(""); setNotFound([]); setShowPaste(false); setOpen(true); }}><Plus className="w-4 h-4 mr-1" /> New transfer</Button>
       </div>
       <div className="relative max-w-md"><Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
         <Input className="pl-9" placeholder="Search transfer no. or store" value={search} onChange={e => setSearch(e.target.value)} /></div>
+      {drafts.length > 0 && (
+        <div className="border rounded-lg bg-card">
+          <div className="px-3 py-2 border-b font-medium text-sm">Drafts ({drafts.length}) <span className="text-muted-foreground font-normal">· no stock has moved. Open one to change products or quantities, then dispatch.</span></div>
+          <div className="divide-y">
+            {drafts.map(n => (
+              <div key={n.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm flex-wrap">
+                <div><span className="font-medium">{n.transfer_number}</span> · {stName[n.from_store_id]} to {stName[n.to_store_id]} · {n.transfer_date}</div>
+                <div className="whitespace-nowrap">
+                  <Button size="sm" onClick={() => openDraft(n)}>Open draft</Button>
+                  <Button size="sm" variant="ghost" className="text-red-600" onClick={() => deleteDraft(n)}><Trash2 className="w-4 h-4" /></Button>
+                </div>
+              </div>))}
+          </div>
+        </div>)}
       <div className="border rounded-lg overflow-x-auto bg-card">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left"><tr><th className="p-3">Transfer</th><th className="p-3">Date</th><th className="p-3">From</th><th className="p-3">To</th><th className="p-3">Driver</th><th className="p-3">Status</th><th className="p-3"></th></tr></thead>
@@ -229,7 +283,7 @@ export default function StockTransfers() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>New stock transfer</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? 'Edit draft transfer' : 'New stock transfer'}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div><Label>From store</Label>
               <Select value={header.from_store_id} onValueChange={v => { setHeader(h => ({ ...h, from_store_id: v })); setLines([]); }}>
@@ -279,14 +333,14 @@ export default function StockTransfers() {
                     <tr key={l.product_id} className="border-t">
                       <td className="p-2"><div className="font-medium">{l.product_name}</div><div className="text-xs text-muted-foreground">{l.sku}</div>{l.check && <div className="text-xs text-orange-600 dark:text-orange-400">Check this match</div>}</td>
                       <td className="p-2">{stock[l.product_id] ?? 0}</td>
-                      <td className="p-2"><Input type="number" min="0" step="any" className={Number(l.quantity) > (stock[l.product_id] || 0) ? "border-orange-500" : ""} value={l.quantity} onChange={e => setLines(ls => ls.map((x, idx) => idx === i ? { ...x, quantity: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input type="number" min="0" step="any" className={!allowNeg && Number(l.quantity) > (stock[l.product_id] || 0) ? "border-orange-500" : ""} value={l.quantity} onChange={e => setLines(ls => ls.map((x, idx) => idx === i ? { ...x, quantity: e.target.value } : x))} /></td>
                       <td className="p-2"><Button size="icon" variant="ghost" onClick={() => setLines(ls => ls.filter((_, x) => x !== i))}><Trash2 className="w-4 h-4 text-red-500" /></Button></td>
                     </tr>))}
               </tbody>
             </table>
           </div>
           <div><Label>Notes</Label><Input value={header.notes} onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))} /></div>
-          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Close</Button><Button disabled={saving} onClick={save}>Dispatch and print delivery note</Button></div>
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Close</Button><Button variant="outline" disabled={saving} onClick={saveDraft}>Save as draft</Button><Button disabled={saving} onClick={save}>Dispatch and print delivery note</Button></div>
         </DialogContent>
       </Dialog>
 
@@ -294,19 +348,20 @@ export default function StockTransfers() {
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Receive {rcv?.note.transfer_number} at {rcv && stName[rcv.note.to_store_id]}</DialogTitle></DialogHeader>
           {rcv && (<>
-            <p className="text-sm text-muted-foreground">Count what is physically in the delivery. If a count is lower than sent, say why. Stock is added to your store only for what you count.</p>
+            <p className="text-sm text-muted-foreground">Count what is physically in the delivery. If a count is lower or higher than sent, say why. Stock is added to your store for what you count; anything above what was sent is taken off the sending store.</p>
             <div className="border rounded-lg overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-left"><tr><th className="p-2">Product</th><th className="p-2 w-20 text-right">Sent</th><th className="p-2 w-28">Counted</th><th className="p-2">Reason if short</th></tr></thead>
                 <tbody>
                   {rcv.lines.map(l => {
                     const short = Number(rcv.counts[l.id]) < Number(l.quantity);
+                    const over = Number(rcv.counts[l.id]) > Number(l.quantity);
                     return (
                       <tr key={l.id} className="border-t">
                         <td className="p-2"><div className="font-medium">{l.product_name}</div><div className="text-xs text-muted-foreground">{l.sku}</div></td>
                         <td className="p-2 text-right">{l.quantity}</td>
-                        <td className="p-2"><Input type="number" min="0" max={l.quantity} step="any" className={short ? "border-amber-500" : ""} value={rcv.counts[l.id]} onChange={e => setRcv(r => ({ ...r, counts: { ...r.counts, [l.id]: e.target.value } }))} /></td>
-                        <td className="p-2">{short && <Input placeholder="Missing / damaged..." value={rcv.reasons[l.id] || ""} onChange={e => setRcv(r => ({ ...r, reasons: { ...r.reasons, [l.id]: e.target.value } }))} />}</td>
+                        <td className="p-2"><Input type="number" min="0" step="any" className={short ? "border-amber-500" : over ? "border-blue-500" : ""} value={rcv.counts[l.id]} onChange={e => setRcv(r => ({ ...r, counts: { ...r.counts, [l.id]: e.target.value } }))} /></td>
+                        <td className="p-2">{over && <div className="text-xs text-blue-500 mb-1">+{Number(rcv.counts[l.id]) - Number(l.quantity)} extra: added to your stock and taken off {stName[rcv.note.from_store_id]}</div>}{(short || over) && <Input placeholder={over ? "Why more than sent..." : "Missing / damaged..."} value={rcv.reasons[l.id] || ""} onChange={e => setRcv(r => ({ ...r, reasons: { ...r.reasons, [l.id]: e.target.value } }))} />}</td>
                       </tr>);
                   })}
                 </tbody>
