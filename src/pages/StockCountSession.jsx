@@ -17,6 +17,17 @@ import {
 
 var PAGE = 300;
 
+// Stock counts must be typed in by hand: no paste, drop, cut or copy on the count entry boxes.
+function blockClip(e) {
+  e.preventDefault();
+  toast.error("Counts must be typed in. Copy and paste is not allowed.", { id: "no-paste" });
+}
+var NO_PASTE = {
+  onPaste: blockClip, onDrop: blockClip, onCut: blockClip, onCopy: blockClip,
+  onDragStart: function (e) { e.preventDefault(); },
+  autoComplete: "off",
+};
+
 export default function StockCountSession() {
   var { id } = useParams();
   var navigate = useNavigate();
@@ -723,6 +734,7 @@ export default function StockCountSession() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input ref={codeRef} value={code} autoFocus placeholder="Scan or type a product"
+                      {...NO_PASTE}
                       className="pl-10 h-11 text-base"
                       onChange={function (e) { setCode(e.target.value); }}
                       onKeyDown={function (e) { if (e.key === "Enter") { e.preventDefault(); submitCount(); } }} />
@@ -731,7 +743,7 @@ export default function StockCountSession() {
 
                 <div className="w-24">
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Quantity</label>
-                  <Input value={qty} inputMode="decimal" className="h-11 text-base text-center"
+                  <Input value={qty} inputMode="decimal" {...NO_PASTE} className="h-11 text-base text-center"
                     onChange={function (e) { setQty(e.target.value); }} />
                 </div>
 
@@ -875,7 +887,7 @@ export default function StockCountSession() {
                     <Input
                       key={r.product_id + "-" + (r.counted_qty === null || r.counted_qty === undefined ? "x" : r.counted_qty)}
                       defaultValue={r.counted_qty === null || r.counted_qty === undefined ? "" : r.counted_qty}
-                      disabled={!live} inputMode="decimal" placeholder="—"
+                      disabled={!live} inputMode="decimal" placeholder="—" {...NO_PASTE}
                       className="w-16 h-9 text-right text-sm"
                       onBlur={function (e) {
                         var v = e.target.value.trim();
